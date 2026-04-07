@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!--
+  © Provided by Prof. Yuseon Park
+  Hongik University, Design Research Studio, 2026
+  with support from Mindy Seu, Alvin Ashiatey
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eyes on the Road</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+
+    <header>
+      <h1 id="site-title"></h1>
+      <p id="site-desc"></p>
+    </header>
+
+    <section class="about">
+      <p id="about-text"></p>
+    </section>
+
+    <section class="works">
+      <div id="grid"></div>
+    </section>
+
+    <script>
+      const SPREADSHEET_ID = "1iRxNc0ubYQSbCdUIMWNgox8TN5U0aelf";
+
+      const KEYS = {
+        title:       "Meta-Title",
+        description: "Meta-Description",
+        about:       "About",
+        project:     "UL-Project",
+        date:        "UL-Date",
+        location:    "UL-Location",
+        note:        "UL-Note",
+        image:       "UL-Images",
+      };
+
+      const CSV_URL =
+        `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
+
+      function parseCSV(text) {
+        const lines = text.trim().split("\n");
+        const headers = splitCSVLine(lines[0]);
+        return lines.slice(1).map((line) => {
+          const values = splitCSVLine(line);
+          const obj = {};
+          headers.forEach((h, i) => {
+            obj[h.trim()] = (values[i] || "").trim();
+          });
+          return obj;
+        });
+      }
+
+      function splitCSVLine(line) {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === "," && !inQuotes) {
+            result.push(current);
+            current = "";
+          } else {
+            current += ch;
+          }
+        }
+        result.push(current);
+        return result;
+      }
+
+      fetch(CSV_URL)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((text) => {
+          const rows = parseCSV(text);
+          const first = rows[0] || {};
+
+          // 메타 정보
+          document.getElementById("site-title").textContent = first[KEYS.title]       || "";
+          document.getElementById("site-desc").textContent  = first[KEYS.description] || "";
+          document.getElementById("about-text").textContent = first[KEYS.about]       || "";
+          document.title = first[KEYS.title] || "";
+
+          const grid = document.getElementById("grid");
+
+          rows.forEach((row) => {
+            if (!row[KEYS.project]) return;
+
+            const card = document.createElement("div");
+            card.className = "card";
+
+            if (row[KEYS.image]) {
+              const img = document.createElement("img");
+              img.src     = row[KEYS.image];
+              img.alt     = row[KEYS.project];
+              img.loading = "lazy";
+              card.appendChild(img);
+            }
+
+            const body = document.createElement("div");
+            body.className = "card-body";
+
+            const year     = row[KEYS.date]
+              ? Math.floor(Number(row[KEYS.date])) || row[KEYS.date]
+              : "";
+            const location = row[KEYS.location] || "";
+            const note     = row[KEYS.note]     || "";
+
+            body.innerHTML = `
+              <p class="project-name">${row[KEYS.project]}</p>
+              <p class="project-meta">${[year, location].filter(Boolean).join(" | ")}</p>
+              ${note ? `<p class="project-note">${note}</p>` : ""}
+            `;
+
+            card.appendChild(body);
+            grid.appendChild(card);
+          });
+        })
+        .catch((err) => {
+          console.error("Error:", err);
+          document.getElementById("grid").innerHTML =
+            `<p style="color:red">
+              Failed to load data.<br>
+              ① Check sharing settings — set to "Anyone with the link (Viewer)"<br>
+              ② Check Spreadsheet ID<br>
+              ③ Open with Live Server or GitHub Pages (file:// won't work)
+            </p>`;
+        });
+    </script>
+  </body>
+</html>

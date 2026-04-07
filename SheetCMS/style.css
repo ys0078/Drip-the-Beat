@@ -1,0 +1,103 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+body {
+  font-family: sans-serif;
+  background: #ffffff;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+header {
+  padding: 1rem 1rem 1rem;
+  background: #ffffff;
+  color: #000000;
+}
+
+/* Meta-Title */
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.4rem;
+}
+
+/* Meta-Description */
+#site-desc {
+  font-size: 1rem;
+  line-height: 1.2;
+  color: #000000;
+}
+
+.about {
+  padding: 1rem 1rem;
+  background: #ffffff;
+}
+
+/* About */
+#about-text {
+  max-width: 680px;
+  font-size: 1rem;
+  color: #000000;
+  line-height: 1.2;
+}
+
+/* ─────────────────────────────────────
+   Works
+   UL-Project / UL-Date / UL-Location / UL-Note / UL-Images
+───────────────────────────────────── */
+.works {
+  padding: 1rem 1rem;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid blue;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* UL-Images */
+.card img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  background: #eeeeee;
+}
+
+.card-body {
+  padding: 1rem 1rem 1rem;
+}
+
+/* UL-Project */
+.project-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 0.25rem;
+}
+
+/* UL-Date, UL-Location */
+.project-meta {
+  font-size: 0.95rem;
+  color: #000000;
+  margin-bottom: 0.5rem;
+}
+
+/* UL-Note */
+.project-note {
+  font-size: 0.95rem;
+  color: #000000;
+  line-height: 1.2;
+}
