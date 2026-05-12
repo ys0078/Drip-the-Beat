@@ -81,7 +81,7 @@
   .list-continent {
     position: absolute;
     top: -14px; left: 17px;
-    width: 342px; height: 26px;
+    width: 420px; height: 26px;
     color: #000;
     font-family: "Diphylleia", serif;
     font-size: 18px;
@@ -188,7 +188,7 @@
   </div>
 
   <!-- BACK -->
-  <div class="label-back" onclick="window.location.href='1.jangdan.html'">BACK</div>
+  <div class="label-back" onclick="window.location.href='jangdan_screen.html'">BACK</div>
 
 </div>
 
@@ -505,7 +505,10 @@ hitarea.addEventListener('click', (e) => {
   });
 
   if (nearest && nearest.code === 'KR') {
-    window.location.href = '1.jangdan.html';
+    window.location.href = 'jangdan_screen.html';
+  }
+  if (nearest && nearest.code === 'JP') {
+    window.location.href = '3.jp_temp.html';
   }
 });
 function setupFilter(containerId, stateKey) {
