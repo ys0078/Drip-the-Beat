@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Diphylleia&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: #fff;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    font-family: "Noto Serif KR", serif;
+  }
+
+  .screen {
+    position: relative;
+    width: 1920px; height: 1080px;
+    transform-origin: top left;
+    background: #fff;
+  }
+
+  /* ── Globe ── */
+  #globe-wrap {
+    position: absolute;
+    top: -236px; left: 276px;
+    width: 1572px; height: 1572px;
+    border-radius: 50%;
+    border: 1px solid #000;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  #globe-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1572px; height: 1572px;
+    pointer-events: none;
+  }
+
+  /* ── Hover target (full screen, tracks mouse) ── */
+  #globe-hitarea {
+    position: absolute;
+    top: -236px; left: 276px;
+    width: 1572px; height: 1572px;
+    border-radius: 50%;
+    cursor: crosshair;
+  }
+
+  /* ── Pointer lines + circle ── */
+  #pointer-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px; height: 1080px;
+    pointer-events: none;
+    overflow: visible;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  /* ── Point Feature Labels ── */
+  .point-feature {
+    position: absolute;
+    left: 0; /* set by JS */
+    font-family: "Diphylleia", serif;
+    font-size: 21px;
+    font-weight: 400;
+    color: #000;
+    line-height: normal;
+    height: 30px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  /* ── List_Continent ── */
+  .list-continent {
+    position: absolute;
+    top: -14px; left: 17px;
+    width: 342px; height: 26px;
+    color: #000;
+    font-family: "Diphylleia", serif;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: normal;
+    display: flex;
+    gap: 0;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .list-rhythmstyle {
+    position: absolute;
+    top: 13px; left: 17px;
+    width: 342px; height: 26px;
+    color: #000;
+    font-family: "Diphylleia", serif;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: normal;
+    display: flex;
+    gap: 0;
+    align-items: center;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .filter-item {
+    cursor: pointer;
+    padding: 0 6px;
+    border-radius: 2px;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .filter-item:first-child { padding-left: 0; }
+  .filter-item.active { font-weight: 700; text-decoration: underline; }
+  .filter-sep { color: #aaa; padding: 0 1px; }
+
+  /* ── BACK ── */
+  .label-back {
+    position: absolute;
+    top: 1057px; left: 1781px;
+    width: 118px; height: 37px;
+    color: #000;
+    text-align: right;
+    font-family: "Noto Serif KR", serif;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.48px;
+    line-height: normal;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <!-- Globe border ring -->
+  <div id="globe-wrap">
+    <canvas id="globe-canvas" width="1572" height="1572"></canvas>
+  </div>
+
+  <!-- Hit area -->
+  <div id="globe-hitarea"></div>
+
+  <!-- Pointer SVG overlay -->
+  <svg id="pointer-svg" id="pointer-svg">
+    <line id="ptr-h" stroke="#000" stroke-width="0.85"/>
+    <line id="ptr-v" stroke="#000" stroke-width="0.85"/>
+    <circle id="ptr-circle" r="12.5" fill="none" stroke="#000" stroke-width="2.5"/>
+  </svg>
+
+  <!-- Point feature labels -->
+  <div class="point-feature" id="feat1"></div>
+  <div class="point-feature" id="feat2"></div>
+
+  <!-- Filters -->
+  <div class="list-continent" id="filter-continent">
+    <span class="filter-item" data-val="Africa">Africa</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="America">America</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Asia">Asia</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Europe">Europe</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Oceania">Oceania</span>
+  </div>
+
+  <div class="list-rhythmstyle" id="filter-rhythm">
+    <span class="filter-item" data-val="Cyclical">Cyclical</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Free">Free</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Poly">Poly</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Periodic">Periodic</span>
+    <span class="filter-sep"> / </span>
+    <span class="filter-item" data-val="Rhythm Mode">Rhythm Mode</span>
+  </div>
+
+  <!-- BACK -->
+  <div class="label-back" onclick="window.location.href='1.jangdan.html'">BACK</div>
+
+</div>
+
+<script>
+/* ── Scale screen ── */
+let currentScale = 1;
+function scaleScreen() {
+  const el = document.getElementById('screen');
+  currentScale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+  el.style.transform  = `scale(${currentScale})`;
+  el.style.marginLeft = `${(window.innerWidth  - 1920 * currentScale) / 2}px`;
+  el.style.marginTop  = `${(window.innerHeight - 1080 * currentScale) / 2}px`;
+}
+scaleScreen();
+window.addEventListener('resize', scaleScreen);
+
+/* ── Country data ── */
+const COUNTRIES = [
+  { code:'KR', name:'Korea',              lat:37.5,   lon:127.0,  continent:'Asia',    rhythm:'Cyclical' },
+  { code:'JP', name:'Japan',              lat:35.7,   lon:139.7,  continent:'Asia',    rhythm:'Cyclical' },
+  { code:'CN', name:'China',              lat:39.9,   lon:116.4,  continent:'Asia',    rhythm:'Periodic' },
+  { code:'IN', name:'India',              lat:20.6,   lon:78.9,   continent:'Asia',    rhythm:'Cyclical' },
+  { code:'ID', name:'Indonesia',          lat:-0.8,   lon:113.9,  continent:'Asia',    rhythm:'Cyclical' },
+  { code:'IR', name:'Iran',              lat:32.4,   lon:53.7,   continent:'Asia',    rhythm:'Free' },
+  { code:'TR', name:'Turkey',             lat:38.9,   lon:35.2,   continent:'Asia',    rhythm:'Cyclical' },
+  { code:'AE', name:'UAE',               lat:23.4,   lon:53.8,   continent:'Asia',    rhythm:'Cyclical' },
+  { code:'SA', name:'Saudi Arabia',       lat:23.9,   lon:45.1,   continent:'Asia',    rhythm:'Cyclical' },
+  { code:'SY', name:'Syria',              lat:34.8,   lon:38.9,   continent:'Asia',    rhythm:'Free' },
+  { code:'LB', name:'Lebanon',            lat:33.9,   lon:35.5,   continent:'Asia',    rhythm:'Free' },
+  { code:'JO', name:'Jordan',             lat:30.6,   lon:36.2,   continent:'Asia',    rhythm:'Free' },
+  { code:'IQ', name:'Iraq',              lat:33.2,   lon:43.7,   continent:'Asia',    rhythm:'Free' },
+  { code:'VN', name:'Vietnam',            lat:14.1,   lon:108.3,  continent:'Asia',    rhythm:'Cyclical' },
+  { code:'TH', name:'Thailand',           lat:15.9,   lon:100.9,  continent:'Asia',    rhythm:'Cyclical' },
+  { code:'EG', name:'Egypt',              lat:26.8,   lon:30.8,   continent:'Africa',  rhythm:'Cyclical' },
+  { code:'MA', name:'Morocco',            lat:31.8,   lon:-7.1,   continent:'Africa',  rhythm:'Cyclical' },
+  { code:'DZ', name:'Algeria',            lat:28.0,   lon:1.7,    continent:'Africa',  rhythm:'Cyclical' },
+  { code:'TN', name:'Tunisia',            lat:33.9,   lon:9.5,    continent:'Africa',  rhythm:'Cyclical' },
+  { code:'NG', name:'Nigeria',            lat:9.1,    lon:8.7,    continent:'Africa',  rhythm:'Poly' },
+  { code:'GH', name:'Ghana',              lat:7.9,    lon:-1.0,   continent:'Africa',  rhythm:'Poly' },
+  { code:'SN', name:'Senegal',            lat:14.5,   lon:-14.5,  continent:'Africa',  rhythm:'Poly' },
+  { code:'ML', name:'Mali',               lat:17.6,   lon:-4.0,   continent:'Africa',  rhythm:'Poly' },
+  { code:'BJ', name:'Benin',              lat:9.3,    lon:2.3,    continent:'Africa',  rhythm:'Poly' },
+  { code:'TG', name:'Togo',               lat:8.6,    lon:0.8,    continent:'Africa',  rhythm:'Poly' },
+  { code:'CI', name:'Côte d\'Ivoire',     lat:7.5,    lon:-5.5,   continent:'Africa',  rhythm:'Poly' },
+  { code:'CM', name:'Cameroon',           lat:3.8,    lon:11.5,   continent:'Africa',  rhythm:'Poly' },
+  { code:'CD', name:'DR Congo',           lat:-4.0,   lon:21.8,   continent:'Africa',  rhythm:'Poly' },
+  { code:'AO', name:'Angola',             lat:-11.2,  lon:17.9,   continent:'Africa',  rhythm:'Poly' },
+  { code:'ZA', name:'South Africa',       lat:-30.6,  lon:22.9,   continent:'Africa',  rhythm:'Poly' },
+  { code:'KE', name:'Kenya',              lat:0.0,    lon:37.9,   continent:'Africa',  rhythm:'Poly' },
+  { code:'TZ', name:'Tanzania',           lat:-6.4,   lon:34.9,   continent:'Africa',  rhythm:'Poly' },
+  { code:'UG', name:'Uganda',             lat:1.4,    lon:32.3,   continent:'Africa',  rhythm:'Poly' },
+  { code:'ET', name:'Ethiopia',           lat:9.1,    lon:40.5,   continent:'Africa',  rhythm:'Free' },
+  { code:'SD', name:'Sudan',              lat:12.9,   lon:30.2,   continent:'Africa',  rhythm:'Free' },
+  { code:'GR', name:'Greece',             lat:39.1,   lon:21.8,   continent:'Europe',  rhythm:'Free' },
+  { code:'BG', name:'Bulgaria',           lat:42.7,   lon:25.5,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'RS', name:'Serbia',             lat:44.0,   lon:21.0,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'MK', name:'N.Macedonia',        lat:41.6,   lon:21.7,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'RO', name:'Romania',            lat:45.9,   lon:24.9,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'HU', name:'Hungary',            lat:47.2,   lon:19.5,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'PL', name:'Poland',             lat:51.9,   lon:19.1,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'DE', name:'Germany',            lat:51.2,   lon:10.5,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'FR', name:'France',             lat:46.2,   lon:2.2,    continent:'Europe',  rhythm:'Periodic' },
+  { code:'IT', name:'Italy',              lat:41.9,   lon:12.6,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'ES', name:'Spain',              lat:40.5,   lon:-3.7,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'PT', name:'Portugal',           lat:39.4,   lon:-8.2,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'GB', name:'UK',                 lat:55.4,   lon:-3.4,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'IE', name:'Ireland',            lat:53.1,   lon:-8.2,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'SCT',name:'Scotland',           lat:56.5,   lon:-4.2,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'RU', name:'Russia',             lat:61.5,   lon:105.3,  continent:'Europe',  rhythm:'Periodic' },
+  { code:'UA', name:'Ukraine',            lat:48.4,   lon:31.2,   continent:'Europe',  rhythm:'Periodic' },
+  { code:'US', name:'USA',                lat:37.1,   lon:-95.7,  continent:'America', rhythm:'Rhythm Mode' },
+  { code:'CA', name:'Canada',             lat:56.1,   lon:-106.3, continent:'America', rhythm:'Rhythm Mode' },
+  { code:'MX', name:'Mexico',             lat:23.6,   lon:-102.6, continent:'America', rhythm:'Cyclical' },
+  { code:'CU', name:'Cuba',               lat:21.5,   lon:-79.5,  continent:'America', rhythm:'Poly' },
+  { code:'BR', name:'Brazil',             lat:-14.2,  lon:-51.9,  continent:'America', rhythm:'Poly' },
+  { code:'CO', name:'Colombia',           lat:4.6,    lon:-74.3,  continent:'America', rhythm:'Poly' },
+  { code:'PE', name:'Peru',               lat:-9.2,   lon:-75.0,  continent:'America', rhythm:'Cyclical' },
+  { code:'AR', name:'Argentina',          lat:-38.4,  lon:-63.6,  continent:'America', rhythm:'Periodic' },
+  { code:'CL', name:'Chile',              lat:-35.7,  lon:-71.5,  continent:'America', rhythm:'Cyclical' },
+  { code:'VE', name:'Venezuela',          lat:6.4,    lon:-66.6,  continent:'America', rhythm:'Poly' },
+  { code:'UY', name:'Uruguay',            lat:-32.5,  lon:-55.8,  continent:'America', rhythm:'Periodic' },
+  { code:'PY', name:'Paraguay',           lat:-23.4,  lon:-58.4,  continent:'America', rhythm:'Periodic' },
+  { code:'BO', name:'Bolivia',            lat:-16.3,  lon:-63.6,  continent:'America', rhythm:'Cyclical' },
+  { code:'EC', name:'Ecuador',            lat:-1.8,   lon:-78.2,  continent:'America', rhythm:'Cyclical' },
+  { code:'CR', name:'Costa Rica',         lat:9.7,    lon:-83.8,  continent:'America', rhythm:'Cyclical' },
+  { code:'PA', name:'Panama',             lat:8.5,    lon:-80.8,  continent:'America', rhythm:'Poly' },
+  { code:'JM', name:'Jamaica',            lat:18.1,   lon:-77.3,  continent:'America', rhythm:'Rhythm Mode' },
+  { code:'HT', name:'Haiti',              lat:18.9,   lon:-72.3,  continent:'America', rhythm:'Poly' },
+  { code:'DO', name:'Dominican Rep.',     lat:18.7,   lon:-70.2,  continent:'America', rhythm:'Poly' },
+  { code:'NZ', name:'New Zealand',        lat:-40.9,  lon:174.9,  continent:'Oceania', rhythm:'Free' },
+  { code:'AU', name:'Australia',          lat:-25.3,  lon:133.8,  continent:'Oceania', rhythm:'Free' },
+];
+
+/* ── Globe constants ── */
+const CX = 786, CY = 786, R = 786; /* canvas center, radius */
+/* Globe offset on screen: top:-236, left:276 */
+const GLOB_SCREEN_X = 276, GLOB_SCREEN_Y = -236;
+
+/* ── Rotation state ── */
+/* KR: lat=37.5, lon=127.0 → 구 중앙에 오도록 초기값 설정 */
+let rotY = (Math.PI / 2) - (127.0 * Math.PI / 180); /* KR 중앙 정렬 */
+let rotX =  (37.5  * Math.PI / 180);
+let mouseScreenX = 960, mouseScreenY = 540;
+let hoveredCountry = null;
+
+/* ── Filter state ── */
+let filterContinent = 'all';
+let filterRhythm    = 'all';
+
+/* ── 3D projection ── */
+function latLonToXYZ(lat, lon, rotYr, rotXr) {
+  const φ = lat * Math.PI / 180;
+  const λ = (lon * Math.PI / 180) + rotYr;
+  let x = Math.cos(φ) * Math.cos(λ);
+  let y = Math.sin(φ);
+  let z = Math.cos(φ) * Math.sin(λ);
+  /* rotX tilt */
+  const y2 =  y * Math.cos(rotXr) - z * Math.sin(rotXr);
+  const z2 =  y * Math.sin(rotXr) + z * Math.cos(rotXr);
+  return { x, y: y2, z: z2 };
+}
+
+function project(x, y, z) {
+  return { sx: CX - x * R, sy: CY - y * R, visible: z > 0 };
+}
+
+/* ── Draw graticule ── */
+const canvas = document.getElementById('globe-canvas');
+const ctx    = canvas.getContext('2d');
+
+function drawGlobe() {
+  ctx.clearRect(0, 0, 1572, 1572);
+
+  /* graticule: latitude/longitude grid lines */
+  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  ctx.lineWidth = 0.8;
+
+  /* longitude lines */
+  for (let lon = -180; lon < 180; lon += 30) {
+    ctx.beginPath();
+    let first = true;
+    for (let lat = -90; lat <= 90; lat += 2) {
+      const {x,y,z} = latLonToXYZ(lat, lon, rotY, rotX);
+      const p = project(x, y, z);
+      if (!p.visible) { first = true; continue; }
+      if (first) { ctx.moveTo(p.sx, p.sy); first = false; }
+      else ctx.lineTo(p.sx, p.sy);
+    }
+    ctx.stroke();
+  }
+
+  /* latitude lines */
+  for (let lat = -60; lat <= 60; lat += 30) {
+    ctx.beginPath();
+    let first = true;
+    for (let lon = -180; lon <= 180; lon += 2) {
+      const {x,y,z} = latLonToXYZ(lat, lon, rotY, rotX);
+      const p = project(x, y, z);
+      if (!p.visible) { first = true; continue; }
+      if (first) { ctx.moveTo(p.sx, p.sy); first = false; }
+      else ctx.lineTo(p.sx, p.sy);
+    }
+    ctx.stroke();
+  }
+
+  /* country markers */
+  COUNTRIES.forEach(c => {
+    const {x,y,z} = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+    const p = project(x, y, z);
+    if (!p.visible) return;
+
+    const matches =
+      (filterContinent === 'all' || c.continent === filterContinent) &&
+      (filterRhythm    === 'all' || c.rhythm    === filterRhythm);
+    const alpha = matches ? 1 : 0.2;
+    const isHov = hoveredCountry && hoveredCountry.code === c.code;
+
+    /* dot */
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, isHov ? 5 : 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = isHov ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
+    ctx.fill();
+
+    /* label */
+    ctx.font = `${isHov ? 600 : 400} 18px "Noto Serif KR", serif`;
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    ctx.fillText(c.code, p.sx + 8, p.sy + 6);
+  });
+}
+
+/* ── DOM refs ── */
+const hitarea = document.getElementById('globe-hitarea');
+const ptrSvg  = document.getElementById('pointer-svg');
+const ptrH    = document.getElementById('ptr-h');
+const ptrV    = document.getElementById('ptr-v');
+const ptrCirc = document.getElementById('ptr-circle');
+const feat1   = document.getElementById('feat1');
+const feat2   = document.getElementById('feat2');
+
+/* ── Animation loop ── */
+let lastTime = 0;
+function loop(ts) {
+  lastTime = ts;
+  drawGlobe();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ── Drag-to-rotate state ── */
+let isDragging   = false;
+let dragStartX   = 0, dragStartY = 0;
+let rotYStart    = 0, rotXStart  = 0;
+const DRAG_SENS  = 0.005;
+
+hitarea.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  dragStartX = e.clientX; dragStartY = e.clientY;
+  rotYStart  = rotY;      rotXStart  = rotX;
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => {
+  /* 1920 space */
+  mouseScreenX = (e.clientX - (window.innerWidth  - 1920 * currentScale) / 2) / currentScale;
+  mouseScreenY = (e.clientY - (window.innerHeight - 1080 * currentScale) / 2) / currentScale;
+
+  if (isDragging) {
+    const dx = (e.clientX - dragStartX) / currentScale;
+    const dy = (e.clientY - dragStartY) / currentScale;
+    rotY = rotYStart + dx * DRAG_SENS;
+    rotX = rotXStart + dy * DRAG_SENS;
+    rotX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotX));
+  }
+});
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+hitarea.addEventListener('mousemove', (e) => {
+  const sx = (e.clientX - (window.innerWidth  - 1920 * currentScale) / 2) / currentScale;
+  const sy = (e.clientY - (window.innerHeight - 1080 * currentScale) / 2) / currentScale;
+
+  ptrSvg.style.opacity = '1';
+  ptrH.setAttribute('x1', 0);    ptrH.setAttribute('y1', sy);
+  ptrH.setAttribute('x2', 1920); ptrH.setAttribute('y2', sy);
+  ptrV.setAttribute('x1', sx);   ptrV.setAttribute('y1', 0);
+  ptrV.setAttribute('x2', sx);   ptrV.setAttribute('y2', 1080);
+
+  /* find nearest visible country */
+  let nearest = null, nearDist = 40;
+  COUNTRIES.forEach(c => {
+    const matches =
+      (filterContinent === 'all' || c.continent === filterContinent) &&
+      (filterRhythm    === 'all' || c.rhythm    === filterRhythm);
+    if (!matches) return;
+    const {x,y,z} = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+    if (z <= 0) return;
+    const p = project(x, y, z);
+    const scx = GLOB_SCREEN_X + p.sx;
+    const scy = GLOB_SCREEN_Y + p.sy;
+    const d = Math.hypot(sx - scx, sy - scy);
+    if (d < nearDist) { nearDist = d; nearest = { ...c, px: scx, py: scy }; }
+  });
+
+  hoveredCountry = nearest;
+
+  /* lines + circle: 국가 근처면 해당 위치에 고정 */
+  const lineX = nearest ? nearest.px : sx;
+  const lineY = nearest ? nearest.py : sy;
+  ptrH.setAttribute('x1', 0);      ptrH.setAttribute('y1', lineY);
+  ptrH.setAttribute('x2', 1920);   ptrH.setAttribute('y2', lineY);
+  ptrV.setAttribute('x1', lineX);  ptrV.setAttribute('y1', 0);
+  ptrV.setAttribute('x2', lineX);  ptrV.setAttribute('y2', 1080);
+  ptrCirc.setAttribute('cx', lineX);
+  ptrCirc.setAttribute('cy', lineY);
+
+  if (nearest) {
+    const FILTER_BOTTOM = 70; /* filter 영역 하단 (38+26+6) */
+    /* horizontal line y = nearest.py */
+    /* feat1(continent): 바로 위, feat2(rhythm): 바로 아래 */
+    const f1top = nearest.py - 30; /* line 위 */
+    const f2top = nearest.py + 4;  /* line 아래 */
+
+    feat1.style.opacity = '1'; feat2.style.opacity = '1';
+    feat1.style.left = '17px'; feat2.style.left = '17px';
+    /* filter 영역과 겹치지 않도록 */
+    feat1.style.top = Math.max(FILTER_BOTTOM, f1top) + 'px';
+    feat2.style.top = Math.max(FILTER_BOTTOM, f2top - 5) + 'px';
+    feat1.textContent = nearest.continent;
+    feat2.textContent = nearest.rhythm;
+  } else {
+    hoveredCountry = null;
+    feat1.style.opacity = '0'; feat2.style.opacity = '0';
+  }
+});
+
+hitarea.addEventListener('mouseleave', () => {
+  ptrSvg.style.opacity = '0';
+  feat1.style.opacity  = '0';
+  feat2.style.opacity  = '0';
+  hoveredCountry = null;
+});
+
+hitarea.addEventListener('click', (e) => {
+  const sx = (e.clientX - (window.innerWidth  - 1920 * currentScale) / 2) / currentScale;
+  const sy = (e.clientY - (window.innerHeight - 1080 * currentScale) / 2) / currentScale;
+
+  let nearest = null, nearDist = 30;
+  COUNTRIES.forEach(c => {
+    const {x,y,z} = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+    if (z <= 0) return;
+    const p = project(x, y, z);
+    const scx = GLOB_SCREEN_X + p.sx;
+    const scy = GLOB_SCREEN_Y + p.sy;
+    const d = Math.hypot(sx - scx, sy - scy);
+    if (d < nearDist) { nearDist = d; nearest = c; }
+  });
+
+  if (nearest && nearest.code === 'KR') {
+    window.location.href = '1.jangdan.html';
+  }
+});
+function setupFilter(containerId, stateKey) {
+  document.getElementById(containerId).querySelectorAll('.filter-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const isActive = el.classList.contains('active');
+      document.getElementById(containerId).querySelectorAll('.filter-item').forEach(e => e.classList.remove('active'));
+      if (!isActive) {
+        el.classList.add('active');
+        if (stateKey === 'continent') filterContinent = el.dataset.val;
+        else                          filterRhythm    = el.dataset.val;
+      } else {
+        if (stateKey === 'continent') filterContinent = 'all';
+        else                          filterRhythm    = 'all';
+      }
+    });
+  });
+}
+setupFilter('filter-continent', 'continent');
+setupFilter('filter-rhythm',    'rhythm');
+</script>
+</body>
+</html>
