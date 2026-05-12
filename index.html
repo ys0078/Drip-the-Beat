@@ -1,12 +1,909 @@
-<!doctype html>
-<html lang="en-US">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Drip the Beat</title>
-  </head>
-  <body>
-  <h1>Drip the Beat</h1>
-  <p>교수님 비트주세요!<p>
-  </body>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jangdan / Gutgeori</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: #fff;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── 1920×1080 고정 캔버스 ── */
+  .screen {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: top left;
+    background: #fff;
+    font-family: "Noto Serif KR", serif;
+  }
+
+  /* ── Rhythm (Jangdan) ──
+     top:171px, left:179px, font:600 24px, letter-spacing:-0.48px
+  */
+  .label-jangdan {
+    position: absolute;
+    top: 171px;
+    left: 129px;
+    width: 118px;
+    height: 28px;
+    color: #000;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: -0.48px;
+    white-space: nowrap;
+  }
+
+  /* ── Rhythm_sub (Gutgeori) ──
+     top:214px, left:349px, font:600 16px
+  */
+  .label-gutgeori {
+    position: absolute;
+    top: 214px;
+    left: 299px;
+    width: 118px;
+    height: 27px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: normal;
+    white-space: nowrap;
+  }
+
+  /* ── Rhythm_line1 top:198px, Rhythm_line2 top:218px ──
+     width:455px, height:0.85px
+     (왼쪽 끝 기준 → left:0, width:455)
+  */
+  .rhythm-line {
+    position: absolute;
+    left: 0;
+    width: 405px;
+    height: 1px;
+    background: #000;
+  }
+
+  /* ── Lyrics ──
+     top:437px, left:528px, width:570px, height:205px
+     font:600 18px
+  */
+  .lyrics-block {
+    position: absolute;
+    top: 437px;
+    left: 528px;
+    width: 570px;
+    height: 205px;
+    color: #000;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: normal;
+    overflow: hidden;
+  }
+  .lyrics-block p { white-space: nowrap; margin-bottom: 4px; }
+
+  /* ── PLAY Button ──
+     top:864px, left:1781px, width:118px
+     font:600 24px, text-align:right, letter-spacing:-0.48px
+  */
+  .label-play {
+    position: absolute;
+    top: 864px;
+    right: 20px;
+    width: 118px;
+    height: 27px;
+    color: #000;
+    text-align: right;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: -0.48px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .label-change {
+    position: absolute;
+    top: 924px;
+    right: 20px;
+    width: 118px;
+    height: 27px;
+    color: #000;
+    text-align: right;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: normal;
+    letter-spacing: -0.48px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  /* ── Translate lines (3줄) ──
+     width:1410px, gap:18px
+     bottom:930px → top: 1080-930 = 150px 기준, 위로 18px gap씩
+     line height: 0.85px
+     left: 530px (play/change 영역 시작)
+  */
+  .translate-line {
+    position: absolute;
+    left: 530px;
+    right: 0;
+    height: 1px;
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<div class="screen" id="screen">
+
+  <!-- Rhythm_line1, Rhythm_line2 -->
+  <div class="rhythm-line" style="top:198px;"></div>
+  <div class="rhythm-line" style="top:218px;"></div>
+
+  <!-- Rhythm (Jangdan) -->
+  <div class="label-jangdan">Jangdan</div>
+
+  <!-- Rhythm_sub (Gutgeori) -->
+  <div class="label-gutgeori">Gutgeori</div>
+
+  <!-- Ruler + Numbers + Dots (SVG)
+       RULER_NUM: width:1200px, gap:87px, 12개, font:600 12px
+       RULER tick: width:1px, height:27px
+       left 기준: 350px, right: 350+1200=1550px → 12등분
+       tick bottom:25px → y=1055
+       원: top:1015px, 지름:12px
+  -->
+  <svg style="position:absolute;top:0;left:0;width:1920px;height:1080px;pointer-events:none;overflow:visible;" id="ruler-svg"></svg>
+
+  <!-- Lyrics -->
+  <div class="lyrics-block">
+    <p>에헤 에헤 아미 타하 아허야 불이로다</p>
+    <p>서산 낙조에 떨어지는 해는 내일 아침이면은</p>
+    <p>다시 돋견마는 황천 길은 얼마나 먼지 한번 가면은 영절이라</p>
+    <p>에헤 에헤 아미 타하 아허야 불이로다</p>
+    <p>서산 명월이 다 넘어가구 벽수비풍은</p>
+    <p>슬슬 부는데 새벽 종다리 우지짖는 소리 아니나든 심정이 절로난다</p>
+    <p>에헤 에헤 아미 타하 아허야 불이로다</p>
+  </div>
+
+  <!-- Translate lines: 제일 아래 top:929px, 위로 18px씩 -->
+  <div class="translate-line" style="top:929px;"></div>
+  <div class="translate-line" style="top:911px;"></div>
+  <div class="translate-line" style="top:893px;"></div>
+
+  <!-- PLAY / CHANGE -->
+  <div class="label-play">PLAY</div>
+  <div class="label-change" onclick="window.location.href='2.world_list.html'">CHANGE</div>
+
+</div>
+
+<script>
+  /* ruler 요소 — beat line 초기화 시 제거용 */
+  const rulerTickLines  = [];
+  const rulerDotCircles = [];
+
+  (function () {
+    const svg      = document.getElementById('ruler-svg');
+    const NS       = 'http://www.w3.org/2000/svg';
+
+    const firstCX  = 528;
+    const ITEM_W   = 20;
+    const GAP      = 87;
+    const TICK_TOP = 0, TICK_H = 27, TICK_BTM = TICK_TOP + TICK_H;
+    const NUM_Y    = 50;
+    const DOT_Y    = 1015, DOT_R = 6;
+
+    for (let i = 0; i < 12; i++) {
+      const cx = firstCX + i * (ITEM_W + GAP);
+
+      /* 숫자 */
+      const txt = document.createElementNS(NS, 'text');
+      txt.setAttribute('x', cx); txt.setAttribute('y', NUM_Y);
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('font-family', '"Noto Serif KR", serif');
+      txt.setAttribute('font-size', '12'); txt.setAttribute('font-weight', '600');
+      txt.setAttribute('fill', '#000');
+      txt.textContent = i + 1;
+      svg.appendChild(txt);
+
+      /* tick 세로선 — beat line 초기화 시 제거 */
+      const ln = document.createElementNS(NS, 'line');
+      ln.setAttribute('x1', cx); ln.setAttribute('y1', TICK_TOP);
+      ln.setAttribute('x2', cx); ln.setAttribute('y2', TICK_BTM);
+      ln.setAttribute('stroke', '#000'); ln.setAttribute('stroke-width', '1');
+      svg.appendChild(ln);
+      rulerTickLines.push(ln);
+
+      /* 원 — beat line 초기화 시 제거 */
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('cx', cx); c.setAttribute('cy', DOT_Y); c.setAttribute('r', DOT_R);
+      c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#000');
+      c.setAttribute('stroke-width', '0.85');
+      svg.appendChild(c);
+      rulerDotCircles.push(c);
+    }
+  })();
+
+  /* ── 반응형 scale ── */
+  let currentScale = 1;
+  function scaleScreen() {
+    const el = document.getElementById('screen');
+    currentScale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    el.style.transform  = `scale(${currentScale})`;
+    el.style.marginLeft = `${(window.innerWidth  - 1920 * currentScale) / 2}px`;
+    el.style.marginTop  = `${(window.innerHeight - 1080 * currentScale) / 2}px`;
+
+    const marginX = (window.innerWidth - 1920 * currentScale) / 2;
+    const extraPx = marginX / currentScale;
+
+    document.querySelectorAll('.rhythm-line').forEach(el => {
+      el.style.left  = `${-extraPx}px`;
+      el.style.width = `${405 + extraPx}px`;
+    });
+    document.querySelectorAll('.translate-line').forEach(el => {
+      el.style.right = `${-extraPx}px`;
+    });
+  }
+  scaleScreen();
+  window.addEventListener('resize', scaleScreen);
+
+  /* ══════════════════════════════════════════
+     PLAY / PAUSE / REPLAY + Row Drag 전체 로직
+  ══════════════════════════════════════════ */
+  const playBtn  = document.querySelector('.label-play');
+  const screenEl = document.getElementById('screen');
+
+  const LINE_START_X = -10, LINE_END_X = 1960, ERASE_DUR = 2000;
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  /* ── 가사 데이터 ── */
+  const SENTENCES = [
+    "에헤 에헤 아미 타하 아허야 불이로다",
+    "서산 낙조에 떨어지는 해는 내일 아침이면은",
+    "다시 돋견마는 황천 길은 얼마나 먼지 한번 가면은 영절이라",
+    "에헤 에헤 아미 타하 아허야 불이로다",
+    "서산 명월이 다 넘어가구 벽수비풍은",
+    "슬슬 부는데 새벽 종다리 우지짖는 소리 아니나든 심정이 절로난다",
+    "에헤 에헤 아미 타하 아허야 불이로다"
+  ];
+  const BEAT_PATTERN = [3, 0, 2, 3, 1, 1, 3, 0, 2, 3, 1, 1];
+  const ALL_WORDS = SENTENCES.join(' ').split(' ').reduce((acc, w, i, arr) => {
+    if (w === '아미' && arr[i + 1] === '타하') acc.push('아미 타하');
+    else if (w === '타하' && arr[i - 1] === '아미') { }
+    else acc.push(w);
+    return acc;
+  }, []);
+
+  const TICK_XS       = Array.from({length: 12}, (_, i) => 528 + i * 107);
+  const TICK_WIDTH    = 107;
+  const ROW_TOP_START = 457;
+  const ROW_GAP       = 26;
+  const BEAT_MS       = 500;
+  const TB_LEFT = 528, TB_RIGHT = 1705, TB_W = TB_RIGHT - TB_LEFT;
+  const NUM_BASE_X    = 1900; /* 숫자 기본 x 위치 */
+
+  function buildEvents() {
+    const events = [];
+    let wc = 0, beat = 0;
+    while (wc < ALL_WORDS.length) {
+      const col = beat % 12, row = Math.floor(beat / 12), style = BEAT_PATTERN[col];
+      let word = null;
+      if (style !== 0 && wc < ALL_WORDS.length) word = ALL_WORDS[wc++];
+      events.push({ word, row, col, style });
+      beat++;
+      if (style === 0 && wc >= ALL_WORDS.length) break;
+    }
+    while (beat % 12 !== 0) {
+      events.push({ word: null, row: Math.floor(beat / 12), col: beat % 12, style: BEAT_PATTERN[beat % 12] });
+      beat++;
+    }
+    return events;
+  }
+
+  function getWordStyle(style) {
+    const base = `position:absolute;color:#000;font-family:"Noto Serif KR",serif;
+      font-size:18px;font-style:normal;line-height:normal;
+      white-space:nowrap;overflow:hidden;
+      cursor:ew-resize;user-select:none;`;
+    if (style === 3) return base + 'font-weight:800;';
+    if (style === 2) return base + 'font-weight:500;';
+    if (style === 1) return base + 'font-weight:500;letter-spacing:11px;';
+    return base;
+  }
+
+  /* ── 전역 상태 ── */
+  let appState    = 'idle';
+  const EVENTS    = buildEvents();
+  const TOTAL_DUR = EVENTS.length * BEAT_MS;
+  let wordElapsed = 0, wordStartTs = null, wordRafId = null, nextBeatIdx = 0;
+  let wordEls     = []; /* { el, beatIndex, originalLeft, row } */
+  let timeBar     = null, coverBox = null;
+  let playbackRate = 1;
+
+  /* rowOffsets: 각 행의 x 이동량 — REPLAY/되감기에도 유지 */
+  const rowOffsets = [0, 0, 0, 0, 0];
+
+  /* ── Beat Line System ── */
+  const COL_DOT_Y    = 1015;
+  const LINE_EXT_H   = 1100;
+  const LINE_EXT_DUR = 400;
+  const DRAG_FULL_PX = 80;
+
+  let beatLineSvg      = null;
+  let beatLineEls      = [];
+  let beatDotEls       = [];
+  let beatDotOffsetX   = Array(12).fill(0);
+  let beatDotOffsetY   = Array(12).fill(0);
+  let beatLineExtended = Array(12).fill(false);
+  let colLatestWordEl  = Array(12).fill(null);
+  let colBaseY         = Array(12).fill(1015); /* 스타일별 기본 y: 3=올림, 2=중간, 1/0=내림 */
+
+  /* 스타일 → 기본 y 위치 */
+  function styleBaseY(style) {
+    if (style === 3) return COL_DOT_Y - 50;
+    if (style === 2) return COL_DOT_Y;
+    return COL_DOT_Y + 50; /* 1, 0 */
+  }
+  let lastSentRow      = -1;
+
+  let colDragCol       = -1;
+  let colDragStartMX   = 0, colDragStartMY = 0;
+  let colDragStartOff  = 0, colDragStartOffY = 0;
+
+  /* 스타일 보간: t>0=강(위), t<0=약(아래) */
+  function applyDynamicStyle(el, baseStyle, t) {
+    t = Math.max(-1, Math.min(1, t));
+    let weight, spacing;
+    if (baseStyle === 3) {
+      /* t=0: 800(기본), t<0: 아래로 → 500 */
+      weight = t >= 0 ? 800 : 800 + (500-800)*(-t);
+      spacing = 0;
+    } else if (baseStyle === 2) {
+      /* max up t=50/80=0.625 → 정규화해서 max=800 */
+      const tn = t * (80/50);
+      if (t >= 0) { weight = 500 + 300 * Math.min(tn, 1); spacing = 0; }
+      else         { weight = 500; spacing = 11 * Math.min(-tn, 1); }
+    } else if (baseStyle === 1) {
+      /* t=0: 500+spacing11(기본), t>0: 위로 → weight 800, spacing 0 */
+      if (t >= 0) { weight = 500 + 300 * t; spacing = 11 * (1 - t); }
+      else        { weight = 500; spacing = 11; }
+    } else return;
+    el.style.fontWeight    = Math.round(weight / 100) * 100;
+    el.style.letterSpacing = spacing > 0.1 ? spacing + 'px' : '';
+  }
+
+  function initBeatLines() {
+    const NS = 'http://www.w3.org/2000/svg';
+    lastSentRow = -1;
+    beatDotOffsetX.fill(0); beatDotOffsetY.fill(0);
+    colLatestWordEl.fill(null);
+    colBaseY.fill(COL_DOT_Y);
+
+    if (beatLineSvg) {
+      beatLineEls.forEach((ln, i) => {
+        beatLineExtended[i] = false;
+        animateLineExtend(i, 0);
+        const x = TICK_XS[i];
+        if (beatDotEls[i]) { beatDotEls[i].setAttribute('cx', x); beatDotEls[i].setAttribute('cy', COL_DOT_Y); beatDotEls[i].setAttribute('fill', 'none'); }
+        if (ln) { ln.setAttribute('x2', x); ln.setAttribute('y2', 0); }
+      });
+      return;
+    }
+
+    rulerTickLines.forEach(el => el.remove());
+    rulerDotCircles.forEach(el => el.remove());
+
+    beatLineSvg = document.createElementNS(NS, 'svg');
+    beatLineSvg.style.cssText = `position:absolute;top:0;left:0;width:1920px;height:1200px;pointer-events:none;overflow:visible;z-index:15;`;
+    screenEl.appendChild(beatLineSvg);
+
+    for (let i = 0; i < 12; i++) {
+      const x = TICK_XS[i];
+      const ln = document.createElementNS(NS, 'line');
+      ln.setAttribute('x1', x); ln.setAttribute('y1', 0);
+      ln.setAttribute('x2', x); ln.setAttribute('y2', 0);
+      ln.setAttribute('stroke', '#000'); ln.setAttribute('stroke-width', '0.65');
+      beatLineSvg.appendChild(ln); beatLineEls.push(ln);
+
+      const dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('cx', x); dot.setAttribute('cy', COL_DOT_Y);
+      dot.setAttribute('r', 6); dot.setAttribute('fill', 'none');
+      dot.setAttribute('stroke', '#000'); dot.setAttribute('stroke-width', '0.65');
+      dot.style.pointerEvents = 'all'; dot.style.cursor = 'move';
+      beatLineSvg.appendChild(dot); beatDotEls.push(dot);
+
+      (function(col) {
+        dot.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          colDragCol = col; colDragStartMX = e.clientX; colDragStartMY = e.clientY;
+          colDragStartOff = beatDotOffsetX[col]; colDragStartOffY = beatDotOffsetY[col];
+          dragAxis = null; /* 축 초기화 */
+          e.preventDefault(); e.stopPropagation();
+        });
+        dot.addEventListener('dblclick', (e) => { e.stopPropagation(); resetBeatLine(col); });
+      })(i);
+    }
+  }
+
+  /* ── Syncopation (마우스 이동 : 실제 선 이동 비율) ── */
+  const SYNCOPATION = { HIGH: 0.9, MID: 0.65, LOW: 0.3 };
+  const SYNC_RATIO  = 0.7; /* 장단 = Mid → 1:0.7 */
+
+  /* 드래그: x1(상단) 고정, x2·y2(하단=도트) 이동 */
+  let dragAxis = null; /* null | 'x' | 'y' */
+  const AXIS_THRESHOLD = 5; /* px (screen) — 이 이상 움직여야 축 확정 */
+
+  window.addEventListener('mousemove', (e) => {
+    if (colDragCol < 0) return;
+
+    /* 축 확정 */
+    if (dragAxis === null) {
+      const adx = Math.abs(e.clientX - colDragStartMX);
+      const ady = Math.abs(e.clientY - colDragStartMY);
+      if (adx >= AXIS_THRESHOLD || ady >= AXIS_THRESHOLD)
+        dragAxis = adx >= ady ? 'x' : 'y';
+      else return;
+    }
+
+    const col = colDragCol;
+    const dx  = (e.clientX - colDragStartMX) / currentScale;
+    const dy  = (e.clientY - colDragStartMY) / currentScale;
+
+    if (dragAxis === 'x') {
+      /* ── 수평: 선 기울어짐, 도트 y는 현재 위치 유지 ── */
+      beatDotOffsetX[col] = colDragStartOff + dx * SYNC_RATIO;
+      const dotY   = colBaseY[col] + beatDotOffsetY[col]; /* 현재 수직 위치 유지 */
+      const dotX   = TICK_XS[col] + beatDotOffsetX[col] * dotY / LINE_EXT_H; /* 선 위 보간 */
+      if (beatDotEls[col])  { beatDotEls[col].setAttribute('cx', dotX); /* cy 건드리지 않음 */ }
+      if (beatLineEls[col]) { beatLineEls[col].setAttribute('x2', TICK_XS[col] + beatDotOffsetX[col]); }
+    } else {
+      /* ── 수직: 원만 이동, 선 고정, 최대 ±25px ── */
+      /* ── 수직: 스타일별 방향 제한, 상대 오프셋 클램프 ── */
+      const rawOff = colDragStartOffY + dy * SYNC_RATIO;
+      const minOff = colBaseY[col] === COL_DOT_Y - 50 ?   0
+                   : colBaseY[col] === COL_DOT_Y + 50 ? -100 : -50;
+      const maxOff = colBaseY[col] === COL_DOT_Y + 50 ?   0
+                   : colBaseY[col] === COL_DOT_Y - 50 ?  100 :  50;
+      beatDotOffsetY[col] = Math.max(minOff, Math.min(maxOff, rawOff));
+      const dotY = colBaseY[col] + beatDotOffsetY[col];
+      const interp = TICK_XS[col] + beatDotOffsetX[col] * dotY / LINE_EXT_H;
+      if (beatDotEls[col]) { beatDotEls[col].setAttribute('cx', interp); beatDotEls[col].setAttribute('cy', dotY); }
+      /* 선 y2는 건드리지 않음 */
+      const el = colLatestWordEl[col];
+      if (el && el._baseStyle !== undefined) applyDynamicStyle(el, el._baseStyle, -beatDotOffsetY[col] / DRAG_FULL_PX);
+    }
+  });
+
+  window.addEventListener('mouseup', () => { colDragCol = -1; dragAxis = null; });
+
+  /* ── Ruler 영역 클릭 → 토글: 선 접기 ↔ 다시 펴기 ── */
+  let rulerLinesCollapsed = false;
+  const rulerResetOverlay = document.createElement('div');
+  rulerResetOverlay.style.cssText = `
+    position:absolute; top:0; left:${TB_LEFT}px;
+    width:${TB_W}px; height:27px;
+    cursor:pointer; z-index:16;
+  `;
+  rulerResetOverlay.addEventListener('click', () => {
+    const dur = 400;
+    if (!rulerLinesCollapsed) {
+      /* 접기: y2 → 27, 도트 위치는 유지 */
+      rulerLinesCollapsed = true;
+      for (let col = 0; col < 12; col++) {
+        const fromX2 = parseFloat(beatLineEls[col]?.getAttribute('x2')) || TICK_XS[col];
+        const fromY2 = parseFloat(beatLineEls[col]?.getAttribute('y2')) || 0;
+        let ts0 = null;
+        (function(c, fx2, fy2) {
+          function anim(ts) {
+            if (!ts0) ts0 = ts;
+            const t = Math.min((ts - ts0) / dur, 1), ease = 1 - Math.pow(1 - t, 3);
+            if (beatLineEls[c]) { beatLineEls[c].setAttribute('x2', fx2+(TICK_XS[c]-fx2)*ease); beatLineEls[c].setAttribute('y2', fy2+(27-fy2)*ease); }
+            if (t < 1) requestAnimationFrame(anim);
+            else {
+              beatLineExtended[c] = false;
+              if (beatLineEls[c]) { beatLineEls[c].setAttribute('x2', TICK_XS[c]); beatLineEls[c].setAttribute('y2', 27); }
+            }
+          }
+          requestAnimationFrame(anim);
+        })(col, fromX2, fromY2);
+      }
+    } else {
+      /* 펴기: y2 → LINE_EXT_H, x2 → 도트의 현재 수평 오프셋 방향 */
+      rulerLinesCollapsed = false;
+      for (let col = 0; col < 12; col++) {
+        const targetX2 = TICK_XS[col] + beatDotOffsetX[col]; /* 도트 방향 */
+        let ts0 = null;
+        (function(c, tx2) {
+          function anim(ts) {
+            if (!ts0) ts0 = ts;
+            const t = Math.min((ts - ts0) / dur, 1), ease = 1 - Math.pow(1 - t, 3);
+            if (beatLineEls[c]) {
+              beatLineEls[c].setAttribute('x2', TICK_XS[c] + (tx2 - TICK_XS[c]) * ease);
+              beatLineEls[c].setAttribute('y2', 27 + (LINE_EXT_H - 27) * ease);
+            }
+            if (t < 1) requestAnimationFrame(anim);
+            else {
+              beatLineExtended[c] = true;
+              if (beatLineEls[c]) { beatLineEls[c].setAttribute('x2', tx2); beatLineEls[c].setAttribute('y2', LINE_EXT_H); }
+            }
+          }
+          requestAnimationFrame(anim);
+        })(col, targetX2);
+      }
+    }
+  });
+
+
+
+  /* 더블클릭: 도트+선 원위치 애니메이션 */
+  function resetBeatLine(col) {
+    const fromX = beatDotOffsetX[col], fromY = beatDotOffsetY[col];
+    const dur = 350; let ts0 = null;
+    function anim(ts) {
+      if (!ts0) ts0 = ts;
+      const t = Math.min((ts - ts0) / dur, 1), ease = 1 - Math.pow(1 - t, 3);
+      const curOffX = fromX*(1-ease), curOffY = fromY*(1-ease);
+      const dotY = colBaseY[col] + curOffY;
+      const dotX = TICK_XS[col] + curOffX * dotY / LINE_EXT_H;
+      if (beatDotEls[col])  { beatDotEls[col].setAttribute('cx', dotX); beatDotEls[col].setAttribute('cy', dotY); }
+      if (beatLineEls[col]) { beatLineEls[col].setAttribute('x2', TICK_XS[col] + curOffX); }
+      const el = colLatestWordEl[col];
+      if (el && el._baseStyle !== undefined) applyDynamicStyle(el, el._baseStyle, 0);
+      if (t < 1) requestAnimationFrame(anim);
+      else {
+        beatDotOffsetX[col] = 0; beatDotOffsetY[col] = 0;
+        const baseY = colBaseY[col];
+        if (beatDotEls[col])  { beatDotEls[col].setAttribute('cx', TICK_XS[col]); beatDotEls[col].setAttribute('cy', baseY); }
+        if (beatLineEls[col]) { beatLineEls[col].setAttribute('x2', TICK_XS[col]); beatLineEls[col].setAttribute('y2', beatLineExtended[col] ? LINE_EXT_H : 0); }
+      }
+    }
+    requestAnimationFrame(anim);
+  }
+
+  function animateLineExtend(col, targetY2) {
+    const ln = beatLineEls[col]; if (!ln) return;
+    const startY2 = parseFloat(ln.getAttribute('y2')) || 0;
+    if (Math.abs(startY2 - targetY2) < 1) return;
+    const dur = LINE_EXT_DUR; let ts0 = null;
+    function anim(ts) {
+      if (!ts0) ts0 = ts;
+      const t = Math.min((ts - ts0) / dur, 1), ease = 1 - Math.pow(1 - t, 3);
+      ln.setAttribute('y2', startY2 + (targetY2 - startY2) * ease);
+      if (t < 1) requestAnimationFrame(anim);
+      else { ln.setAttribute('y2', targetY2); beatLineExtended[col] = (targetY2 > 0); }
+    }
+    requestAnimationFrame(anim);
+  }
+
+
+  let numElsCreated = false;
+  const numHandles  = []; /* { el, row, currentX } */
+
+  function setBtn(l) { playBtn.textContent = l; }
+
+  /* ── row offset 적용 헬퍼 ── */
+  function applyRowOffset(rowIdx) {
+    wordEls.forEach(({ el, originalLeft, row }) => {
+      if (row === rowIdx) el.style.left = ((( originalLeft + rowOffsets[rowIdx]) % 1920 + 1920) % 1920) + 'px';
+    });
+    if (numHandles[rowIdx]) {
+      numHandles[rowIdx].el.style.left = numHandles[rowIdx].currentX + 'px';
+    }
+  }
+
+  /* ── 숫자 핸들 생성 (최초 1회) ── */
+  function createNumHandles() {
+    if (numElsCreated) { numHandles.forEach(h => h.el.style.visibility = 'visible'); return; }
+    numElsCreated = true;
+    for (let n = 0; n < 5; n++) {
+      const el = document.createElement('div');
+      const top = ROW_TOP_START + n * ROW_GAP;
+      el.style.cssText = `
+        position:absolute; top:${top}px; left:${NUM_BASE_X}px;
+        transform:translateX(-50%); width:35px;
+        text-align:center; color:#000;
+        font-family:"Noto Serif KR",serif; font-size:12px;
+        font-weight:600; line-height:normal;
+        cursor:ew-resize; user-select:none;
+        visibility:hidden; z-index:20;
+      `;
+      el.textContent = n + 1;
+      screenEl.appendChild(el);
+      numHandles.push({ el, row: n, currentX: NUM_BASE_X });
+      setupNumDrag(numHandles[n]);
+    }
+  }
+
+  /* ── 숫자 드래그 인터랙션 ── */
+  /* ── 공유 row 드래그 상태 ── */
+  let rowDragging    = false;
+  let rowDragIdx     = -1;
+  let rowDragStartMX = 0;
+  let rowDragStartOffset = 0;
+  let rowDragStartNumX   = 0;
+
+  function startRowDrag(rowIdx, mouseX) {
+    rowDragging        = true;
+    rowDragIdx         = rowIdx;
+    rowDragStartMX     = mouseX;
+    rowDragStartOffset = rowOffsets[rowIdx];
+    rowDragStartNumX   = numHandles[rowIdx] ? numHandles[rowIdx].currentX : NUM_BASE_X;
+  }
+
+  window.addEventListener('mousemove', (e) => {
+    if (!rowDragging) return;
+    const dx  = (e.clientX - rowDragStartMX) / currentScale;
+    const handle = numHandles[rowDragIdx];
+    if (handle) {
+      handle.currentX = (((rowDragStartNumX + dx) % 1920) + 1920) % 1920;
+      handle.el.style.left = handle.currentX + 'px';
+    }
+    rowOffsets[rowDragIdx] = rowDragStartOffset + dx;
+    wordEls.forEach(({ el, originalLeft, row }) => {
+      if (row === rowDragIdx)
+        el.style.left = ((( originalLeft + rowOffsets[rowDragIdx]) % 1920 + 1920) % 1920) + 'px';
+    });
+  });
+
+  window.addEventListener('mouseup', () => { rowDragging = false; });
+
+  /* 더블클릭 리셋 — rowIdx 공통 */
+  function resetRowAnim(rowIdx) {
+    const handle     = numHandles[rowIdx];
+    const fromX      = handle ? handle.currentX : NUM_BASE_X;
+    const fromOffset = rowOffsets[rowIdx];
+    const dur = 350; let startTs = null;
+    function anim(ts) {
+      if (!startTs) startTs = ts;
+      const t    = Math.min((ts - startTs) / dur, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      rowOffsets[rowIdx] = fromOffset * (1 - ease);
+      if (handle) {
+        handle.currentX      = fromX + (NUM_BASE_X - fromX) * ease;
+        handle.el.style.left = handle.currentX + 'px';
+      }
+      wordEls.forEach(({ el, originalLeft, row }) => {
+        if (row === rowIdx)
+          el.style.left = (((originalLeft + rowOffsets[rowIdx]) % 1920 + 1920) % 1920) + 'px';
+      });
+      if (t < 1) requestAnimationFrame(anim);
+      else {
+        rowOffsets[rowIdx] = 0;
+        if (handle) { handle.currentX = NUM_BASE_X; handle.el.style.left = NUM_BASE_X + 'px'; }
+      }
+    }
+    requestAnimationFrame(anim);
+  }
+
+  function setupNumDrag(handle) {
+    handle.el.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      startRowDrag(handle.row, e.clientX);
+      e.preventDefault(); e.stopPropagation();
+    });
+    handle.el.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      resetRowAnim(handle.row);
+    });
+  }
+
+
+  playBtn.addEventListener('click', () => {
+    if      (appState === 'idle')    startErase();
+    else if (appState === 'playing') pauseWords();
+    else if (appState === 'paused')  resumeWords();
+    else if (appState === 'ended')   replayWords();
+  });
+
+  /* ── 1. Erase 애니메이션 ── */
+  function startErase() {
+    appState = 'erasing'; setBtn('PAUSE');
+    createNumHandles();
+
+    const eraseLine = document.createElement('div');
+    eraseLine.style.cssText = `position:absolute;top:430px;width:5px;height:200px;background:#000;pointer-events:none;`;
+    coverBox = document.createElement('div');
+    coverBox.style.cssText = `position:absolute;top:437px;left:0;width:0;height:205px;background:#fff;pointer-events:none;`;
+    screenEl.appendChild(coverBox);
+    screenEl.appendChild(eraseLine);
+
+    let numShown = false, eraseStartTs = null;
+    function eraseLoop(ts) {
+      if (!eraseStartTs) eraseStartTs = ts;
+      const t     = Math.min((ts - eraseStartTs) / ERASE_DUR, 1);
+      const lineX = LINE_START_X + (LINE_END_X - LINE_START_X) * easeOut(t);
+      eraseLine.style.left = lineX + 'px';
+      coverBox.style.width = Math.max(0, lineX) + 'px';
+      if (!numShown && lineX >= 1900) {
+        numHandles.forEach(h => h.el.style.visibility = 'visible');
+        numShown = true;
+      }
+      if (t < 1) requestAnimationFrame(eraseLoop);
+      else { eraseLine.remove(); coverBox.style.width = '1920px'; setTimeout(() => startWords(), 500); }
+    }
+    requestAnimationFrame(eraseLoop);
+  }
+
+  /* ── 2. Word 애니메이션 시작 ── */
+  function startWords() {
+    timeBar = document.createElement('div');
+    timeBar.style.cssText = `position:absolute;top:27px;left:${TB_LEFT}px;
+      height:2.5px;width:0;background:#000;pointer-events:none;z-index:5;`;
+    screenEl.appendChild(timeBar);
+    if (!rulerResetOverlay.parentNode) screenEl.appendChild(rulerResetOverlay);
+    initBeatLines();
+    wordElapsed = 0; nextBeatIdx = 0; wordEls = [];
+    appState = 'playing'; wordStartTs = null; playbackRate = 1;
+    wordRafId = requestAnimationFrame(wordLoop);
+  }
+
+  /* ── Word rAF 루프 ── */
+  function wordLoop(ts) {
+    if (!wordStartTs) wordStartTs = ts;
+    const dt = ts - wordStartTs; wordStartTs = ts;
+    wordElapsed = Math.max(0, Math.min(TOTAL_DUR, wordElapsed + dt * playbackRate));
+
+    if (playbackRate < 0) {
+      wordEls = wordEls.filter(({ el, beatIndex }) => {
+        if (beatIndex * BEAT_MS > wordElapsed) { el.remove(); return false; }
+        return true;
+      });
+      nextBeatIdx = Math.min(nextBeatIdx, Math.floor(wordElapsed / BEAT_MS) + 1);
+    }
+
+    while (nextBeatIdx < EVENTS.length && wordElapsed >= nextBeatIdx * BEAT_MS) {
+      const ev = EVENTS[nextBeatIdx];
+
+      /* 문장 변경 감지 → 도트 fill 초기화 */
+      if (ev.row !== lastSentRow) {
+        if (lastSentRow >= 0 && beatDotEls.length)
+          beatDotEls.forEach(d => { if (d) d.setAttribute('fill', 'none'); });
+        lastSentRow = ev.row;
+      }
+
+      if (beatLineSvg && ev.row === 0 && !beatLineExtended[ev.col])
+        animateLineExtend(ev.col, LINE_EXT_H);
+      if (beatDotEls[ev.col]) beatDotEls[ev.col].setAttribute('fill', '#000');
+
+      /* 스타일에 따라 도트 기본 y 업데이트 + 부드럽게 이동 */
+      const newBase = styleBaseY(ev.style);
+      if (newBase !== colBaseY[ev.col]) {
+        const oldAbsY = colBaseY[ev.col] + beatDotOffsetY[ev.col]; /* 절대 위치 보존 */
+        colBaseY[ev.col] = newBase;
+        /* 새 스타일의 허용 범위로 클램프 */
+        const minOff = newBase === COL_DOT_Y - 50 ?   0 : newBase === COL_DOT_Y + 50 ? -100 : -50;
+        const maxOff = newBase === COL_DOT_Y + 50 ?   0 : newBase === COL_DOT_Y - 50 ?  100 :  50;
+        beatDotOffsetY[ev.col] = Math.max(minOff, Math.min(maxOff, oldAbsY - newBase));
+        const fromY = parseFloat(beatDotEls[ev.col]?.getAttribute('cy')) || COL_DOT_Y;
+        const toY   = newBase + beatDotOffsetY[ev.col];
+        const fromX = parseFloat(beatDotEls[ev.col]?.getAttribute('cx')) || TICK_XS[ev.col];
+        const toX   = TICK_XS[ev.col] + beatDotOffsetX[ev.col] * toY / LINE_EXT_H;
+        const dur = 200; let ts0 = null;
+        (function(c, fy, ty, fx, tx) {
+          function anim(ts) {
+            if (!ts0) ts0 = ts;
+            const t = Math.min((ts - ts0) / dur, 1), ease = 1 - Math.pow(1 - t, 3);
+            if (beatDotEls[c]) { beatDotEls[c].setAttribute('cy', fy + (ty - fy) * ease); beatDotEls[c].setAttribute('cx', fx + (tx - fx) * ease); }
+            if (t < 1) requestAnimationFrame(anim);
+          }
+          requestAnimationFrame(anim);
+        })(ev.col, fromY, toY, fromX, toX);
+      }
+
+      if (ev.word) {
+        const el = document.createElement('div');
+        const top = ROW_TOP_START + ev.row * ROW_GAP;
+        const rowY = top;
+        const originalLeft = TICK_XS[ev.col];
+
+        /* x 오프셋 */
+        const colApplied = beatDotOffsetX[ev.col] !== 0
+          ? beatDotOffsetX[ev.col] * rowY / COL_DOT_Y : 0;
+        const baseLeft = originalLeft + colApplied;
+
+        el.style.cssText = getWordStyle(ev.style) +
+          `top:${top}px;left:${(((baseLeft + rowOffsets[ev.row]) % 1920) + 1920) % 1920}px;` +
+          `width:${ev.col < 11 ? TICK_WIDTH : 200}px;`;
+        el.textContent = ev.word;
+        el._baseStyle = ev.style; /* 스타일 보간용 */
+        colLatestWordEl[ev.col] = el; /* 최신 단어 참조 */
+        el.style.cssText = getWordStyle(ev.style) +
+          `top:${top}px;left:${(((baseLeft + rowOffsets[ev.row]) % 1920) + 1920) % 1920}px;` +
+          `width:${ev.col < 11 ? TICK_WIDTH : 200}px;`;
+        el.textContent = ev.word;
+        el.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          startRowDrag(ev.row, e.clientX);
+          e.preventDefault(); e.stopPropagation();
+        });
+        el.addEventListener('dblclick', (e) => {
+          e.stopPropagation(); resetRowAnim(ev.row);
+        });
+        screenEl.appendChild(el);
+        wordEls.push({ el, beatIndex: nextBeatIdx, originalLeft: baseLeft, row: ev.row });
+      }
+      nextBeatIdx++;
+    }
+
+    timeBar.style.width = (Math.min(wordElapsed / TOTAL_DUR, 1) * TB_W) + 'px';
+
+    if (wordElapsed < TOTAL_DUR) { wordRafId = requestAnimationFrame(wordLoop); }
+    else { timeBar.style.width = TB_W + 'px'; appState = 'ended'; setBtn('REPLAY'); }
+  }
+
+  /* ── PAUSE / RESUME ── */
+  function pauseWords() {
+    cancelAnimationFrame(wordRafId); wordRafId = null; wordStartTs = null;
+    appState = 'paused'; setBtn('PLAY');
+  }
+  function resumeWords() {
+    appState = 'playing'; wordStartTs = null; playbackRate = 1;
+    setBtn('PAUSE'); wordRafId = requestAnimationFrame(wordLoop);
+  }
+
+  /* ── REPLAY: time bar 빠르게 0으로 줄인 후 재시작 ── */
+  function replayWords() {
+    const startW = parseFloat(timeBar.style.width) || 0;
+    const RESET_DUR = 350;
+    let resetTs = null;
+    function resetLoop(ts) {
+      if (!resetTs) resetTs = ts;
+      const t = Math.min((ts - resetTs) / RESET_DUR, 1);
+      timeBar.style.width = (startW * (1 - t)) + 'px';
+      if (t < 1) requestAnimationFrame(resetLoop);
+      else {
+        wordEls.forEach(({ el }) => el.remove()); wordEls = [];
+        if (coverBox) coverBox.style.width = '1920px';
+        /* beat line/dot 상태 유지 — 선분과 원 위치는 그대로 */
+        lastSentRow = -1;
+        colLatestWordEl.fill(null);
+        wordElapsed = 0; nextBeatIdx = 0;
+        appState = 'playing'; wordStartTs = null; playbackRate = 1;
+        setBtn('PAUSE'); wordRafId = requestAnimationFrame(wordLoop);
+      }
+    }
+    requestAnimationFrame(resetLoop);
+  }
+
+  /* ── 스크롤로 박자 이동 ──
+     틱마다 wordElapsed를 직접 점프 → 즉각 반영, 텀 없음
+     스크롤 다운: 1박(500ms) 앞으로
+     스크롤 업:   1박(500ms) 뒤로
+  */
+  window.addEventListener('wheel', (e) => {
+    if (appState !== 'playing' && appState !== 'paused') return;
+    e.preventDefault();
+
+    const jump = e.deltaY > 0 ? BEAT_MS / 8 : -(BEAT_MS / 8);
+    wordElapsed = Math.max(0, Math.min(TOTAL_DUR - 1, wordElapsed + jump));
+    wordStartTs = null; /* 다음 rAF에서 dt 리셋 */
+
+    /* 되감기 시 지나간 단어 제거 */
+    if (jump < 0) {
+      wordEls = wordEls.filter(({ el, beatIndex }) => {
+        if (beatIndex * BEAT_MS > wordElapsed) { el.remove(); return false; }
+        return true;
+      });
+      nextBeatIdx = Math.min(nextBeatIdx, Math.floor(wordElapsed / BEAT_MS) + 1);
+    }
+
+    /* time bar 즉시 업데이트 */
+    if (timeBar) timeBar.style.width = (Math.min(wordElapsed / TOTAL_DUR, 1) * TB_W) + 'px';
+
+    /* 일시정지 상태면 재개 */
+    if (appState === 'paused') resumeWords();
+
+  }, { passive: false });
+
+
+</script>
+</body>
 </html>
