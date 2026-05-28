@@ -930,6 +930,7 @@
       wordEls = wordEls.filter(({ el, beatIndex }) => { if (beatIndex * BEAT_MS > wordElapsed) { el.remove(); return false; } return true; });
       nextBeatIdx = Math.min(nextBeatIdx, Math.floor(wordElapsed / BEAT_MS) + 1);
     }
+    
     if (timeBar) timeBar.style.width = (Math.min(wordElapsed / TOTAL_DUR, 1) * TB_W) + 'px';
     if (appState === 'paused') resumeWords();
   }, { passive: false });
