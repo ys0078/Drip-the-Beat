@@ -79,10 +79,24 @@
   }
   .filter-item:first-child { padding-left: 0; }
   .filter-item.active { font-weight: 700; }
+  .filter-item.cursor { text-decoration: underline; text-underline-offset: 3px; }
   .filter-sep { color: #aaa; padding: 0 1px; }
+
+  #serial-btn {
+    position: fixed; top: 16px; right: 20px;
+    background: none; border: 1px solid #000;
+    padding: 5px 12px;
+    font-family: "Diphylleia", serif;
+    font-size: 11px; font-weight: 400;
+    cursor: pointer; z-index: 9999;
+    letter-spacing: 0.5px; color: #000;
+    transition: color 0.2s;
+  }
+  #serial-btn:hover { background: #f5f5f5; }
 </style>
 </head>
 <body>
+<button id="serial-btn" onclick="connectSerial()">○ SERIAL</button>
 
 <!-- 필터: fixed로 화면 기준 고정 -->
 <div class="filter-wrap">
@@ -135,8 +149,6 @@ function scaleScreen() {
   el.style.transform  = `scale(${currentScale})`;
   el.style.marginLeft = `${(window.innerWidth  - 1920 * currentScale) / 2}px`;
   el.style.marginTop  = `${(window.innerHeight - 1080 * currentScale) / 2}px`;
-
-  /* 필터 텍스트 크기 + 간격: scale에 맞게 보정 */
   const fs  = Math.round(18 * currentScale * 10) / 10;
   const gap = 3 * currentScale;
   document.querySelectorAll('.filter-row').forEach(el => el.style.fontSize = fs + 'px');
@@ -144,11 +156,6 @@ function scaleScreen() {
 }
 scaleScreen();
 window.addEventListener('resize', scaleScreen);
-
-/* ── Backspace → 이전 페이지 ── */
-document.addEventListener('keydown', (e) => {
-  if (e.code === 'Backspace') { e.preventDefault(); window.location.href = 'index.html'; }
-});
 
 /* ── Country data ── */
 const COUNTRIES = [
@@ -233,7 +240,28 @@ const GLOB_SCREEN_X = 296, GLOB_SCREEN_Y = -236;
 let rotY = (Math.PI / 2) - (127.0 * Math.PI / 180);
 let rotX =  (37.5  * Math.PI / 180);
 let hoveredCountry = null;
-let filterContinent = 'all', filterRhythm = 'all';
+let focusedCountry = null;
+let activeContinents = new Set(), activeRhythms = new Set();
+
+/* ── 필터 항목 리스트 (엔코더 E용) ── */
+const FILTER_ITEMS = [
+  { type:'continent', val:'Africa'      },
+  { type:'continent', val:'America'     },
+  { type:'continent', val:'Asia'        },
+  { type:'continent', val:'Europe'      },
+  { type:'continent', val:'Oceania'     },
+  { type:'rhythm',    val:'Cyclical'    },
+  { type:'rhythm',    val:'Free'        },
+  { type:'rhythm',    val:'Poly'        },
+  { type:'rhythm',    val:'Periodic'    },
+  { type:'rhythm',    val:'Rhythm Mode' },
+];
+let filterCursor = 0;
+
+function matchesFilter(c) {
+  return (activeContinents.size === 0 || activeContinents.has(c.continent)) &&
+         (activeRhythms.size    === 0 || activeRhythms.has(c.rhythm));
+}
 
 /* ── 마우스 부드러운 이동 (lerp) ── */
 let mouseScreenX = 960, mouseScreenY = 540;   /* 실제 마우스 위치 */
@@ -299,13 +327,18 @@ function drawGlobe() {
     const {x,y,z} = latLonToXYZ(c.lat, c.lon, rotY, rotX);
     const p = project(x, y, z);
     if (!p.visible) return;
-    const matches = (filterContinent === 'all' || c.continent === filterContinent) &&
-                    (filterRhythm    === 'all' || c.rhythm    === filterRhythm);
+    const matches  = matchesFilter(c);
+    const isFocused = focusedCountry && c.code === focusedCountry.code;
     const alpha = matches ? 1 : 0.2;
     ctx.beginPath();
-    ctx.arc(p.sx, p.sy, 3.5, 0, Math.PI * 2);
+    ctx.arc(p.sx, p.sy, isFocused ? 6 : 3.5, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(0,0,0,${alpha})`;
     ctx.fill();
+    if (isFocused) {
+      ctx.strokeStyle = `rgba(0,0,0,${alpha})`;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
     ctx.font = `400 18px "Noto Serif KR", serif`;
     ctx.fillStyle = `rgba(0,0,0,${alpha})`;
     ctx.fillText(c.code, p.sx + 8, p.sy + 6);
@@ -427,8 +460,7 @@ hitarea.addEventListener('mousemove', (e) => {
   /* 가장 가까운 국가 탐색 */
   let nearest = null, nearDist = 40;
   COUNTRIES.forEach(c => {
-    const matches = (filterContinent === 'all' || c.continent === filterContinent) &&
-                    (filterRhythm    === 'all' || c.rhythm    === filterRhythm);
+    const matches = matchesFilter(c);
     if (!matches) return;
     const {x,y,z} = latLonToXYZ(c.lat, c.lon, rotY, rotX);
     if (z <= 0) return;
@@ -475,25 +507,170 @@ hitarea.addEventListener('click', (e) => {
   if (nearest?.code === 'JP') window.location.href = '3.jp.html';
 });
 
-/* ── Filters ── */
-function setupFilter(containerId, stateKey) {
-  document.getElementById(containerId).querySelectorAll('.filter-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const isActive = el.classList.contains('active');
-      document.getElementById(containerId).querySelectorAll('.filter-item').forEach(e => e.classList.remove('active'));
-      if (!isActive) {
-        el.classList.add('active');
-        if (stateKey === 'continent') filterContinent = el.dataset.val;
-        else                          filterRhythm    = el.dataset.val;
-      } else {
-        if (stateKey === 'continent') filterContinent = 'all';
-        else                          filterRhythm    = 'all';
-      }
-    });
+/* ── 필터 UI ── */
+const filterEls = [...document.querySelectorAll('.filter-item')];
+
+function updateFilterUI() {
+  filterEls.forEach((el, idx) => {
+    const item = FILTER_ITEMS[idx];
+    if (!item) return;
+    const isActive = item.type === 'continent'
+      ? activeContinents.has(item.val)
+      : activeRhythms.has(item.val);
+    el.classList.toggle('active', isActive);
+    el.classList.toggle('cursor', idx === filterCursor);
   });
 }
-setupFilter('filter-continent', 'continent');
-setupFilter('filter-rhythm',    'rhythm');
+updateFilterUI();
+
+/* 클릭으로 개별 토글 */
+filterEls.forEach((el, idx) => {
+  el.addEventListener('click', () => {
+    const item = FILTER_ITEMS[idx];
+    if (!item) return;
+    const set = item.type === 'continent' ? activeContinents : activeRhythms;
+    if (set.has(item.val)) set.delete(item.val);
+    else set.add(item.val);
+    filterCursor = idx;
+    updateFilterUI();
+  });
+});
+
+/* ── 엔코더 E: 필터 커서 이동 ── */
+function doFilterMove(dir) {
+  filterCursor = (filterCursor + dir + FILTER_ITEMS.length) % FILTER_ITEMS.length;
+  updateFilterUI();
+}
+
+/* ── 엔코더 E SW: 현재 커서 항목 토글 ── */
+function doFilterToggle() {
+  const item = FILTER_ITEMS[filterCursor];
+  const set  = item.type === 'continent' ? activeContinents : activeRhythms;
+  if (set.has(item.val)) set.delete(item.val);
+  else set.add(item.val);
+  updateFilterUI();
+}
+
+/* ── 엔코더 F/G: 국가 이동 후 중앙 배치 ── */
+function shortestAngle(from, to) {
+  const d = ((to - from) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+  return from + d;
+}
+
+function centerCountry(c) {
+  focusedCountry = c;
+  targetRotY = shortestAngle(targetRotY, Math.PI / 2 - c.lon * Math.PI / 180);
+  targetRotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, c.lat * Math.PI / 180));
+  velY = 0; velX = 0;
+}
+
+function findNeighbor(dir) {
+  const visible = COUNTRIES.filter(c => {
+    const { z } = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+    return z > 0 && matchesFilter(c);
+  });
+  if (!visible.length) return null;
+
+  /* 포커스 없거나 화면 밖이면 화면 중앙에 가장 가까운 국가 반환 */
+  if (!focusedCountry || !visible.find(c => c.code === focusedCountry.code)) {
+    let best = null, bd = Infinity;
+    visible.forEach(c => {
+      const { x, y, z } = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+      const p = project(x, y, z);
+      const d = Math.hypot(p.sx - CX, p.sy - CY);
+      if (d < bd) { bd = d; best = c; }
+    });
+    return best;
+  }
+
+  const { x: fx, y: fy, z: fz } = latLonToXYZ(focusedCountry.lat, focusedCountry.lon, rotY, rotX);
+  const fp = project(fx, fy, fz);
+  let best = null, bs = Infinity;
+
+  visible.forEach(c => {
+    if (c.code === focusedCountry.code) return;
+    const { x, y, z } = latLonToXYZ(c.lat, c.lon, rotY, rotX);
+    const p = project(x, y, z);
+    const dx = p.sx - fp.sx, dy = p.sy - fp.sy;
+    let score;
+    if      (dir === 'right' && dx >  5) score =  dx + Math.abs(dy) * 0.5;
+    else if (dir === 'left'  && dx < -5) score = -dx + Math.abs(dy) * 0.5;
+    else if (dir === 'down'  && dy >  5) score =  dy + Math.abs(dx) * 0.5;
+    else if (dir === 'up'    && dy < -5) score = -dy + Math.abs(dx) * 0.5;
+    else return;
+    if (score < bs) { bs = score; best = c; }
+  });
+  return best;
+}
+
+/* ── 버튼 A: 국가 선택 ── */
+function doSelectCountry() {
+  const c = focusedCountry || hoveredCountry;
+  if (!c) return;
+  if (c.code === 'KR') window.location.href = 'index.html';
+  else if (c.code === 'JP') window.location.href = '3.jp.html';
+}
+
+/* ── 키보드 ── */
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Backspace') { e.preventDefault(); window.location.href = 'index.html'; }
+  if (e.code === 'Enter')     { e.preventDefault(); doSelectCountry(); }
+});
+
+/* ── Web Serial ── */
+let serialPort = null;
+const serialBtn = document.getElementById('serial-btn');
+
+function handleSerialCommand(cmd) {
+  switch (cmd.trim()) {
+    case 'CHANGE':                        window.location.href = 'index.html'; break;
+    case 'PLAY':                          doSelectCountry(); break;
+    /* 엔코더 E: 필터 커서 이동 */
+    case 'VOL+': case 'SPD+':            doFilterMove(1);   break;
+    case 'VOL-': case 'SPD-':            doFilterMove(-1);  break;
+    /* 엔코더 E SW: 필터 토글 */
+    case 'MODE_SPEED': case 'MODE_VOL':  doFilterToggle();  break;
+    /* 엔코더 F: 좌우 국가 이동 */
+    case 'COL+': case 'MOVE+': { const n = findNeighbor('right'); if (n) centerCountry(n); break; }
+    case 'COL-': case 'MOVE-': { const n = findNeighbor('left');  if (n) centerCountry(n); break; }
+    /* 엔코더 G: 상하 국가 이동 */
+    case 'ROW+': { const n = findNeighbor('down'); if (n) centerCountry(n); break; }
+    case 'ROW-': { const n = findNeighbor('up');   if (n) centerCountry(n); break; }
+  }
+}
+
+async function connectSerial() {
+  if (!('serial' in navigator)) { alert('Chrome / Edge를 사용해 주세요.'); return; }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    await serialPort.open({ baudRate: 9600 });
+    serialBtn.textContent = '● CONNECTED';
+    serialBtn.style.color = '#1a7a1a';
+    serialBtn.style.borderColor = '#1a7a1a';
+    const decoder = new TextDecoderStream();
+    serialPort.readable.pipeTo(decoder.writable);
+    const reader = decoder.readable.getReader();
+    let buf = '';
+    (async function readLoop() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += value;
+          const lines = buf.split('\n');
+          buf = lines.pop();
+          lines.forEach(line => { if (line.trim()) handleSerialCommand(line); });
+        }
+      } catch (err) {
+        serialBtn.textContent = '○ SERIAL';
+        serialBtn.style.color = '#000';
+        serialBtn.style.borderColor = '#000';
+      }
+    })();
+  } catch (err) {
+    if (err.name !== 'NotFoundError') console.error(err);
+  }
+}
 </script>
 </body>
 </html>
