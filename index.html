@@ -439,7 +439,7 @@
       if (beatDotEls[col])  { beatDotEls[col].setAttribute('cx', dotX); beatDotEls[col].setAttribute('cy', dotY); }
       if (beatLineEls[col]) beatLineEls[col].setAttribute('x2', TICK_XS[col] + curOffX);
       const el = colLatestWordEl[col];
-      if (el && el._baseStyle !== undefined) applyDynamicStyle(el, el._baseStyle, 0);
+      if (el && el._baseStyle !== undefined) applyDynamicStyle(el, el._baseStyle, -curOffY / DRAG_FULL_PX);
       if (t < 1) requestAnimationFrame(anim);
       else {
         beatDotOffsetX[col] = 0; beatDotOffsetY[col] = 0;
