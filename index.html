@@ -552,6 +552,7 @@
   function doChange() { window.location.href = '2.world_list.html'; }
   function doErase() {
     for (let col = 0; col < 12; col++) resetBeatLine(col);
+    for (let row = 0; row < rowOffsets.length; row++) resetRowAnim(row);
   }
   function doRuler()  { rulerResetOverlay.click(); }
 
