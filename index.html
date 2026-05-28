@@ -550,7 +550,9 @@
     else if (appState === 'ended')   replayWords();
   }
   function doChange() { window.location.href = '2.world_list.html'; }
-  function doErase()  { location.reload(); }
+  function doErase() {
+    for (let col = 0; col < 12; col++) resetBeatLine(col);
+  }
   function doRuler()  { rulerResetOverlay.click(); }
 
   function doSelectCol(col) {
