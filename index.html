@@ -558,89 +558,25 @@
     appState = 'idle'; wordElapsed = 0; wordStartTs = null;
     nextBeatIdx = 0; playbackRate = 1; lastSentRow = -1;
     selectedCol = -1; rulerLinesCollapsed = false;
-    colLatestWordEl.fill(null);
 
     // ── 진행 바 / 커버 박스 / 오버레이 제거 ──
     if (timeBar) { timeBar.remove(); timeBar = null; }
     if (coverBox) { coverBox.remove(); coverBox = null; }
     if (rulerResetOverlay.parentNode) rulerResetOverlay.remove();
 
-    // ── 단어 애니메이션: 현재 화면 위치 → TICK_XS[col] 원래 자리 ──
-    const animWords    = wordEls.splice(0);
-    const fromHandleXs = numHandles.map(h => h.currentX);
+    // ── 박자 원/선 애니메이션 (글자 굵기도 함께 보간) ──
+    for (let col = 0; col < 12; col++) resetBeatLine(col);
 
-    // 애니메이션 시작 전 현재 시각적 위치 캡처
-    animWords.forEach(w => {
-      w.fromLeft = parseFloat(w.el.style.left) || 0;
-      w.toLeft   = TICK_XS[w.col];
-    });
+    // ── 문장/단어 위치 애니메이션 (wordEls를 살려둬야 작동함) ──
+    for (let row = 0; row < rowOffsets.length; row++) resetRowAnim(row);
 
-    const DUR = 350; let wTs0 = null;
-    requestAnimationFrame(function wordAnimLoop(ts) {
-      if (!wTs0) wTs0 = ts;
-      const t    = Math.min((ts - wTs0) / DUR, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-
-      animWords.forEach(w => {
-        w.el.style.left = (w.fromLeft + (w.toLeft - w.fromLeft) * ease) + 'px';
-      });
-      numHandles.forEach((h, i) => {
-        h.currentX      = fromHandleXs[i] + (NUM_BASE_X - fromHandleXs[i]) * ease;
-        h.el.style.left = h.currentX + 'px';
-      });
-
-      if (t < 1) {
-        requestAnimationFrame(wordAnimLoop);
-      } else {
-        animWords.forEach(({ el }) => el.remove());
-        rowOffsets.fill(0);
-        numHandles.forEach(h => {
-          h.currentX            = NUM_BASE_X;
-          h.el.style.left       = NUM_BASE_X + 'px';
-          h.el.style.visibility = 'hidden';
-        });
-      }
-    });
-
-    // ── 박자 원 / 선 — 현재 절대 위치에서 홈(COL_DOT_Y)으로 애니메이션 ──
-    if (beatLineSvg) {
-      for (let col = 0; col < 12; col++) {
-        const fromX  = beatDotOffsetX[col];
-        const fromAY = colBaseY[col] + beatDotOffsetY[col];
-        beatDotOffsetX[col] = 0; beatDotOffsetY[col] = 0;
-        colBaseY[col] = COL_DOT_Y;
-        beatLineExtended[col] = false;
-        animateLineExtend(col, 0);
-
-        (function(c, fx, fay) {
-          let ts0 = null;
-          function anim(ts) {
-            if (!ts0) ts0 = ts;
-            const t    = Math.min((ts - ts0) / DUR, 1);
-            const ease = 1 - Math.pow(1 - t, 3);
-            const cy   = fay + (COL_DOT_Y - fay) * ease;
-            const cx   = fx  * (1 - ease);
-            const dotX = TICK_XS[c] + cx * cy / LINE_EXT_H;
-            if (beatDotEls[c]) {
-              beatDotEls[c].setAttribute('cx', dotX);
-              beatDotEls[c].setAttribute('cy', cy);
-              beatDotEls[c].setAttribute('fill', 'none');
-            }
-            if (beatLineEls[c]) beatLineEls[c].setAttribute('x2', TICK_XS[c] + cx);
-            if (t < 1) requestAnimationFrame(anim);
-            else {
-              if (beatDotEls[c]) {
-                beatDotEls[c].setAttribute('cx', TICK_XS[c]);
-                beatDotEls[c].setAttribute('cy', COL_DOT_Y);
-                beatDotEls[c].setAttribute('r', 6);
-              }
-              if (beatLineEls[c]) beatLineEls[c].setAttribute('x2', TICK_XS[c]);
-            }
-          }
-          requestAnimationFrame(anim);
-        })(col, fromX, fromAY);
-      }
-    }
+    // ── 애니메이션 완료 후 정리 (350ms + 여유 50ms) ──
+    setTimeout(() => {
+      wordEls.forEach(({ el }) => el.remove());
+      wordEls = [];
+      colLatestWordEl.fill(null);
+      numHandles.forEach(h => { h.el.style.visibility = 'hidden'; });
+    }, 400);
   }
   function doRuler()  { rulerResetOverlay.click(); }
 
