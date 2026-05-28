@@ -823,7 +823,7 @@
         el.addEventListener('mousedown', (e) => { if (e.button !== 0) return; startRowDrag(ev.row, e.clientX); e.preventDefault(); e.stopPropagation(); });
         el.addEventListener('dblclick', (e) => { e.stopPropagation(); resetRowAnim(ev.row); });
         screenEl.appendChild(el);
-        wordEls.push({ el, beatIndex: nextBeatIdx, originalLeft: baseLeft, row: ev.row, col: ev.col });
+        wordEls.push({ el, beatIndex: nextBeatIdx, originalLeft: baseLeft, row: ev.row });
       }
       nextBeatIdx++;
     }
