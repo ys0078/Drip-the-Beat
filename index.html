@@ -551,32 +551,14 @@
   }
   function doChange() { window.location.href = '2.world_list.html'; }
   function doErase() {
-    // ── 재생 루프 중단 ──
-    if (wordRafId) { cancelAnimationFrame(wordRafId); wordRafId = null; }
+    selectedCol = -1;
+    beatDotEls.forEach(d => { if (d) d.setAttribute('r', 6); });
 
-    // ── 상태 변수 초기화 ──
-    appState = 'idle'; wordElapsed = 0; wordStartTs = null;
-    nextBeatIdx = 0; playbackRate = 1; lastSentRow = -1;
-    selectedCol = -1; rulerLinesCollapsed = false;
-
-    // ── 진행 바 / 커버 박스 / 오버레이 제거 ──
-    if (timeBar) { timeBar.remove(); timeBar = null; }
-    if (coverBox) { coverBox.remove(); coverBox = null; }
-    if (rulerResetOverlay.parentNode) rulerResetOverlay.remove();
-
-    // ── 박자 원/선 애니메이션 (글자 굵기도 함께 보간) ──
-    for (let col = 0; col < 12; col++) resetBeatLine(col);
-
-    // ── 문장/단어 위치 애니메이션 (wordEls를 살려둬야 작동함) ──
+    // 문장 위치 조정값 → 0 (단어는 화면에 유지, 제자리로 이동)
     for (let row = 0; row < rowOffsets.length; row++) resetRowAnim(row);
 
-    // ── 애니메이션 완료 후 정리 (350ms + 여유 50ms) ──
-    setTimeout(() => {
-      wordEls.forEach(({ el }) => el.remove());
-      wordEls = [];
-      colLatestWordEl.fill(null);
-      numHandles.forEach(h => { h.el.style.visibility = 'hidden'; });
-    }, 400);
+    // 박자 원 위치 / 글자 굵기 조정값 → 0
+    for (let col = 0; col < 12; col++) resetBeatLine(col);
   }
   function doRuler()  { rulerResetOverlay.click(); }
 
