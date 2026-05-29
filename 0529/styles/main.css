@@ -1,0 +1,45 @@
+.screen.main-view {
+  font-family: "Noto Serif KR", serif;
+}
+
+.label-jangdan {
+  position: absolute;
+  top: 35px; left: 49px;
+  width: 118px; height: 28px;
+  color: #000; font-size: 21px; font-weight: 600;
+  line-height: normal; letter-spacing: -0.48px; white-space: nowrap;
+}
+
+.label-gutgeori {
+  position: absolute;
+  top: 68px; left: 49px;
+  width: 118px; height: 27px;
+  color: #000; font-size: 16px; font-weight: 600;
+  line-height: normal; white-space: nowrap;
+}
+
+.rhythm-line {
+  transform: scaleY(0.5);
+  transform-origin: top left;
+  position: absolute;
+  top: 65px; left: 0;
+  width: 180px; height: 1px;
+  background: #000;
+}
+
+.lyrics-block {
+  position: absolute;
+  top: 435px; left: 408px;
+  width: 570px; height: 205px;
+  color: #000; font-size: 18px; font-weight: 600;
+  line-height: 25.5px; overflow: hidden;
+}
+.lyrics-block p { white-space: nowrap; margin-bottom: 4px; }
+
+.translate-line {
+  transform: scaleY(0.5);
+  transform-origin: top left;
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px; background: #000;
+}

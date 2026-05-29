@@ -1,0 +1,65 @@
+.screen.world-view {
+  font-family: "Diphylleia", serif;
+}
+
+#globe-wrap {
+  position: absolute;
+  top: -236px; left: 296px;
+  width: 1572px; height: 1572px;
+  border-radius: 50%;
+  border: 1px solid #000;
+  overflow: hidden;
+  pointer-events: none;
+}
+#globe-canvas { position: absolute; top: 0; left: 0; width: 1572px; height: 1572px; pointer-events: none; }
+
+#globe-hitarea {
+  position: absolute;
+  top: -236px; left: 296px;
+  width: 1572px; height: 1572px;
+  border-radius: 50%;
+  cursor: crosshair;
+}
+
+#pointer-svg {
+  position: absolute; top: 0; left: 0;
+  width: 1920px; height: 1080px;
+  pointer-events: none; overflow: visible;
+  opacity: 0; transition: opacity 0.15s;
+}
+
+.point-feature {
+  position: absolute;
+  font-family: "Diphylleia", serif;
+  font-size: 21px; font-weight: 400; color: #000;
+  line-height: normal; height: 30px; white-space: nowrap;
+  pointer-events: none; opacity: 0; transition: opacity 0.15s;
+}
+
+.filter-wrap {
+  position: fixed;
+  top: 12px; left: 17px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-family: "Diphylleia", serif;
+  font-size: 18px; font-weight: 400; color: #000;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+.filter-item {
+  cursor: pointer; padding: 0 6px;
+  transition: background 0.15s; white-space: nowrap;
+}
+.filter-item:first-child { padding-left: 0; }
+.filter-item.active { font-weight: 700; }
+.filter-item.cursor { text-decoration: underline; text-underline-offset: 3px; }
+.filter-sep { color: #aaa; padding: 0 1px; }
