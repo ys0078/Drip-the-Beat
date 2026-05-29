@@ -443,15 +443,14 @@ registerView('world_list', (() => {
   /* ── 시리얼 명령 핸들러 ── */
   function handleCommand(cmd){
     switch(cmd){
-      case 'CHANGE':                        showView('main'); break;
-      case 'PLAY':                          doSelectCountry(); break;
-      case 'VOL+': case 'SPD+':            doFilterMove(1);  break;
-      case 'VOL-': case 'SPD-':            doFilterMove(-1); break;
-      case 'MODE_SPEED': case 'MODE_VOL':  doFilterToggle(); break;
-      case 'COL+': case 'MOVE+': { const n=findNeighbor('right'); if(n)centerCountry(n); break; }
-      case 'COL-': case 'MOVE-': { const n=findNeighbor('left');  if(n)centerCountry(n); break; }
-      case 'ROW+': { const n=findNeighbor('down'); if(n)centerCountry(n); break; }
-      case 'ROW-': { const n=findNeighbor('up');   if(n)centerCountry(n); break; }
+      case 'CHANGE': showView('main');   break;
+      case 'PLAY':   doSelectCountry();  break;
+      case 'E+':     doFilterMove(1);    break;  // 필터 커서 ↓
+      case 'E-':     doFilterMove(-1);   break;  // 필터 커서 ↑
+      case 'F+':   { const n=findNeighbor('right'); if(n)centerCountry(n); break; }
+      case 'F-':   { const n=findNeighbor('left');  if(n)centerCountry(n); break; }
+      case 'G+':   { const n=findNeighbor('down');  if(n)centerCountry(n); break; }
+      case 'G-':   { const n=findNeighbor('up');    if(n)centerCountry(n); break; }
     }
   }
 

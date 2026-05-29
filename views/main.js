@@ -653,20 +653,16 @@ registerView('main', (() => {
   /* ── 시리얼 명령 핸들러 ── */
   function handleCommand(cmd){
     switch(cmd){
-      case 'PLAY':       doPlay();      break;
-      case 'CHANGE':     doChange();    break;
-      case 'ERASE':      doErase();     break;
-      case 'RULER':      doRuler();     break;
-      case 'COL+':       doColMove(1);  break;
-      case 'COL-':       doColMove(-1); break;
-      case 'MOVE+':      doMove(1);     break;
-      case 'MOVE-':      doMove(-1);    break;
-      case 'VOL+':       doVol(-1);     break;
-      case 'VOL-':       doVol(1);      break;
-      case 'SPD+':       doSpeed(0.1);  break;
-      case 'SPD-':       doSpeed(-0.1); break;
-      case 'ROW+':       doRow(1);      break;
-      case 'ROW-':       doRow(-1);     break;
+      case 'PLAY':   doPlay();      break;
+      case 'CHANGE': doChange();    break;
+      case 'ERASE':  doErase();     break;
+      case 'RULER':  doRuler();     break;
+      case 'E+':     doColMove(1);  break;  // 박자 원 선택 →
+      case 'E-':     doColMove(-1); break;  // 박자 원 선택 ←
+      case 'F+':     doMove(1);     break;  // 선택된 원 →
+      case 'F-':     doMove(-1);    break;  // 선택된 원 ←
+      case 'G+':     doVol(1);      break;  // 강약 약하게
+      case 'G-':     doVol(-1);     break;  // 강약 강하게
     }
   }
 
