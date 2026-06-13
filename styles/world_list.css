@@ -28,8 +28,10 @@
   opacity: 0; transition: opacity 0.15s;
 }
 
+/* 박자 정보 — 뷰포트 기준 left 17px 고정, top은 JS에서 뷰포트 좌표로 변환 */
 .point-feature {
-  position: absolute;
+  position: fixed;
+  left: 17px;
   font-family: "Diphylleia", serif;
   font-size: 21px; font-weight: 400; color: #000;
   line-height: normal; height: 30px; white-space: nowrap;
@@ -61,5 +63,5 @@
 }
 .filter-item:first-child { padding-left: 0; }
 .filter-item.active { font-weight: 700; }
-.filter-item.cursor { text-decoration: underline; text-underline-offset: 3px; }
+.filter-item.cursor { font-weight: 600; }
 .filter-sep { color: #aaa; padding: 0 1px; }

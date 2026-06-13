@@ -23,9 +23,16 @@ registerView('main', (() => {
   const ROW_GAP       = 26;
   const BEAT_MS       = 500;
   const NUM_BASE_X    = 1900;
-  const COL_MOVE_STEP = 10;
+  const COL_MOVE_STEP = 52.5; /* 1/2박 = tick간격(105px) / 2 */
   const ROW_MOVE_STEP = 10;
-  const VOL_STEP      = 8;
+  const VOL_STEP      = 12.5;
+  const VOL_CLICKS_PER_LEVEL = 2; /* 몇 클릭마다 레벨 변경 */
+  let beatVolLevel = Array(12).fill(0); /* col별 세기 레벨: -2~+2 */
+  let beatVolAccum = Array(12).fill(0); /* 누적 클릭 카운터 */
+  const VOL_LEVEL_MIN = -2, VOL_LEVEL_MAX = 2;
+
+  /* 레벨 → 게인 매핑 (파일 없을 때 gain으로 표현) */
+  const VOL_LEVEL_GAIN = { '-2': 0.1, '-1': 0.35, '0': 1.0, '1': 1.4, '2': 1.8 };
   const SPD_STEP      = 0.1, SPD_MIN = 0.25, SPD_MAX = 3.0;
 
   const SENTENCES = [
@@ -55,10 +62,14 @@ registerView('main', (() => {
       let word = null;
       if (style !== 0 && wc < ALL_WORDS.length) word = ALL_WORDS[wc++];
       events.push({ word, row, col, style }); beat++;
-      if (style === 0 && wc >= ALL_WORDS.length) break;
+      if (wc >= ALL_WORDS.length) break;
     }
-    while (beat%12 !== 0) {
-      events.push({ word:null, row:Math.floor(beat/12), col:beat%12, style:BEAT_PATTERN[beat%12] }); beat++;
+    /* 마지막 실제 박(style !== 0)을 style 2로 교체 */
+    for (let i = events.length - 1; i >= 0; i--) {
+      if (events[i].style !== 0) {
+        events[i].style = 2;
+        break;
+      }
     }
     return events;
   }
@@ -113,6 +124,114 @@ registerView('main', (() => {
   /* ── 이벤트 핸들러 참조 (unmount 시 제거용) ── */
   let onKeyDown, onMouseMove, onMouseUp, onWheel, onResize;
 
+  /* ── 오디오 시스템 ── */
+  let audioCtx = null;
+  const rawBuffers   = {};
+  const audioBuffers = {};
+  const LOOKAHEAD    = 0.01;
+  const SCHED_AHEAD  = 500; /* ms 앞당겨 오디오 스케줄 */
+  let schedNextIdx   = 0;
+  const scheduledSet = new Set();
+  let audioOrigin    = 0; /* audioCtx.currentTime - wordElapsed/1000 */
+
+  /* 파일 구조: {style}_{variant}.wav
+     3_1.wav, 3_2.wav / 2_1.wav / 11_1.wav
+  */
+  const SOUND_DEFS = {
+    '3':  { variants: 2 },
+    '2':  { variants: 1 },
+    '11': { variants: 1 },
+  };
+
+  const DOUBLE_WEAK_FIRST = new Set();
+  const DOUBLE_WEAK_SKIP  = new Set();
+  (function() {
+    const ones = BEAT_PATTERN.map((s,i) => s===1 ? i : -1).filter(i => i>=0);
+    for (let i = 0; i < ones.length; i += 2) {
+      DOUBLE_WEAK_FIRST.add(ones[i]);
+      if (ones[i+1] !== undefined) DOUBLE_WEAK_SKIP.add(ones[i+1]);
+    }
+  })();
+
+  /* col → variant
+     style 3: col%6===0 (0,6) → 1 / col%6===3 (3,9) → 2
+     style 2, 11: 항상 1
+  */
+  const COL_VARIANT_MAP = {};
+  (function() {
+    BEAT_PATTERN.forEach((s, col) => {
+      if (s === 3) COL_VARIANT_MAP[col] = (col % 6 === 0) ? 1 : 2;
+      else         COL_VARIANT_MAP[col] = 1;
+    });
+    [...DOUBLE_WEAK_FIRST].forEach(col => { COL_VARIANT_MAP[col] = 1; });
+  })();
+
+  let prevBeatStyle = 0;
+
+  function preloadRaw() {
+    Object.entries(SOUND_DEFS).forEach(([key, { variants }]) => {
+      rawBuffers[key] = {};
+      for (let v = 1; v <= variants; v++) {
+        rawBuffers[key][v] = null;
+        const name = `${key}_${v}.wav`;
+        fetch(`audio/1.jangdan_3/${name}`)
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+          .then(arr => { rawBuffers[key][v] = arr; })
+          .catch(e => console.warn('[audio] preload failed:', name, e));
+      }
+    });
+  }
+
+  async function initAudio() {
+    if (audioCtx) { if (audioCtx.state === 'suspended') await audioCtx.resume(); return; }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume();
+    await Promise.all(Object.entries(SOUND_DEFS).map(async ([key, { variants }]) => {
+      audioBuffers[key] = {};
+      for (let v = 1; v <= variants; v++) {
+        const arr = rawBuffers[key]?.[v];
+        if (!arr) { console.warn('[audio] not preloaded:', key, v); continue; }
+        try {
+          audioBuffers[key][v] = await audioCtx.decodeAudioData(arr.slice(0));
+        } catch(e) { console.warn('[audio] decode failed:', key, v, e); }
+      }
+    }));
+  }
+
+  function playBeat(col, style, beatAudioTime) {
+    if (!audioCtx || style === 0 || isMuted) return;
+    if (DOUBLE_WEAK_SKIP.has(col)) return;
+
+    let soundKey, variant;
+    if (DOUBLE_WEAK_FIRST.has(col) && style === 1) {
+      /* style이 1로 유지된 경우만 11 재생 (마지막박 등 style이 바뀐 경우 제외) */
+      soundKey = '11'; variant = 1;
+    } else {
+      soundKey = String(style);
+      variant  = COL_VARIANT_MAP[col] || 1;
+    }
+    prevBeatStyle = style;
+
+    const buf = audioBuffers[soundKey]?.[variant];
+    if (!buf) { console.warn('[audio] missing buffer:', soundKey, variant); return; }
+
+    /* circle X → 타이밍 오프셋 */
+    const offsetSec = ((beatDotOffsetX[col] || 0) / 52.5) * 0.25;
+    const startTime = Math.max(audioCtx.currentTime + 0.002,
+                               beatAudioTime + offsetSec + LOOKAHEAD);
+
+    /* 세기 레벨 → gain (2클릭=1레벨, 파일 교체 시 여기서 파일 선택 가능) */
+    const gain = VOL_LEVEL_GAIN[String(beatVolLevel[col] ?? 0)] ?? 1.0;
+
+    const src      = audioCtx.createBufferSource();
+    const gainNode = audioCtx.createGain();
+    src.buffer          = buf;
+    gainNode.gain.value = gain;
+    src.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    src.start(startTime);
+  }
+
   /* ══════════════════════════════════════
      MOUNT
   ══════════════════════════════════════ */
@@ -123,6 +242,7 @@ registerView('main', (() => {
     rowOffsets=[0,0,0,0,0];
     beatLineSvg=null; beatLineEls=[]; beatDotEls=[];
     beatDotOffsetX=Array(12).fill(0); beatDotOffsetY=Array(12).fill(0);
+    beatVolLevel=Array(12).fill(0);   beatVolAccum=Array(12).fill(0);
     beatLineExtended=Array(12).fill(false); colLatestWordEl=Array(12).fill(null);
     colBaseY=Array(12).fill(COL_DOT_Y); lastSentRow=-1;
     colDragCol=-1; colDragStartMX=0; colDragStartMY=0;
@@ -176,6 +296,9 @@ registerView('main', (() => {
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup',   onMouseUp);
     window.addEventListener('wheel',     onWheel, { passive: false });
+
+    /* 오디오 파일 미리 다운로드 (AudioContext는 doPlay 시 생성) */
+    preloadRaw();
   }
 
   /* ══════════════════════════════════════
@@ -438,6 +561,8 @@ registerView('main', (() => {
     if(!rulerResetOverlay.parentNode)screenEl.appendChild(rulerResetOverlay);
     initBeatLines();
     wordElapsed=0; nextBeatIdx=0; wordEls=[];
+    schedNextIdx=0; scheduledSet.clear();
+    audioOrigin = audioCtx ? audioCtx.currentTime : 0;
     appState='playing'; wordStartTs=null; playbackRate=1;
     wordRafId=requestAnimationFrame(wordLoop);
   }
@@ -451,7 +576,23 @@ registerView('main', (() => {
         if(beatIndex*BEAT_MS>wordElapsed){el.remove();return false;}return true;
       });
       nextBeatIdx=Math.min(nextBeatIdx,Math.floor(wordElapsed/BEAT_MS)+1);
+      schedNextIdx=nextBeatIdx; scheduledSet.clear();
+      audioOrigin = audioCtx ? audioCtx.currentTime - wordElapsed/1000 : 0;
     }
+    /* ── 오디오 lookahead 스케줄링 ── */
+    if (audioCtx) {
+      while (schedNextIdx < EVENTS.length &&
+             wordElapsed + SCHED_AHEAD >= schedNextIdx * BEAT_MS) {
+        if (!scheduledSet.has(schedNextIdx)) {
+          const sev = EVENTS[schedNextIdx];
+          const beatAudioTime = audioOrigin + schedNextIdx * BEAT_MS / 1000;
+          playBeat(sev.col, sev.style, beatAudioTime);
+          scheduledSet.add(schedNextIdx);
+        }
+        schedNextIdx++;
+      }
+    }
+
     while(nextBeatIdx<EVENTS.length&&wordElapsed>=nextBeatIdx*BEAT_MS){
       const ev=EVENTS[nextBeatIdx];
       if(ev.row!==lastSentRow){
@@ -518,6 +659,8 @@ registerView('main', (() => {
         if(coverBox)coverBox.style.width='1920px';
         lastSentRow=-1; colLatestWordEl.fill(null);
         wordElapsed=0; nextBeatIdx=0; appState='playing'; wordStartTs=null; playbackRate=1;
+        schedNextIdx=0; scheduledSet.clear();
+        audioOrigin = audioCtx ? audioCtx.currentTime : 0;
         wordRafId=requestAnimationFrame(wordLoop);
       }
     }
@@ -526,10 +669,19 @@ registerView('main', (() => {
 
   /* ── 공용 액션 함수 ── */
   function doPlay(){
-    if(appState==='idle')    startErase();
-    else if(appState==='playing')pauseWords();
-    else if(appState==='paused') resumeWords();
-    else if(appState==='ended')  replayWords();
+    if (!audioCtx) {
+      initAudio().then(() => {
+        if(appState==='idle')    startErase();
+        else if(appState==='playing')pauseWords();
+        else if(appState==='paused') resumeWords();
+        else if(appState==='ended')  replayWords();
+      }).catch(e => console.warn('[audio] init:', e));
+    } else {
+      if(appState==='idle')    startErase();
+      else if(appState==='playing')pauseWords();
+      else if(appState==='paused') resumeWords();
+      else if(appState==='ended')  replayWords();
+    }
   }
   function doChange(){ showView('world_list'); }
   function doErase(){
@@ -549,7 +701,7 @@ registerView('main', (() => {
   }
   function doMove(dir){
     if(selectedCol<0||!beatDotEls[selectedCol])return;
-    beatDotOffsetX[selectedCol]+=dir*COL_MOVE_STEP*SYNC_RATIO;
+    beatDotOffsetX[selectedCol] += dir * COL_MOVE_STEP; /* 1/2박 단위, SYNC_RATIO 미적용 */
     const dotY=colBaseY[selectedCol]+beatDotOffsetY[selectedCol];
     const dotX=TICK_XS[selectedCol]+beatDotOffsetX[selectedCol]*dotY/LINE_EXT_H;
     beatDotEls[selectedCol].setAttribute('cx',dotX);
@@ -558,6 +710,7 @@ registerView('main', (() => {
   function doVol(dir){
     if(selectedCol<0)return;
     const col=selectedCol;
+    /* 시각: 원 위아래 이동 */
     const minOff=colBaseY[col]===COL_DOT_Y-50?0:colBaseY[col]===COL_DOT_Y+50?-100:-50;
     const maxOff=colBaseY[col]===COL_DOT_Y+50?0:colBaseY[col]===COL_DOT_Y-50?100:50;
     beatDotOffsetY[col]=Math.max(minOff,Math.min(maxOff,beatDotOffsetY[col]+dir*VOL_STEP));
@@ -566,6 +719,13 @@ registerView('main', (() => {
     if(beatDotEls[col]){beatDotEls[col].setAttribute('cx',dotX);beatDotEls[col].setAttribute('cy',dotY);}
     const el=colLatestWordEl[col];
     if(el&&el._baseStyle!==undefined)applyDynamicStyle(el,el._baseStyle,-beatDotOffsetY[col]/DRAG_FULL_PX);
+    /* 오디오: 2클릭마다 레벨 변경 */
+    beatVolAccum[col] += dir;
+    if(Math.abs(beatVolAccum[col]) >= VOL_CLICKS_PER_LEVEL){
+      beatVolLevel[col] = Math.max(VOL_LEVEL_MIN, Math.min(VOL_LEVEL_MAX,
+                            beatVolLevel[col] + Math.sign(beatVolAccum[col])));
+      beatVolAccum[col] = 0;
+    }
   }
   function doSpeed(dir){
     if(appState!=='playing'&&appState!=='paused')return;
@@ -585,11 +745,22 @@ registerView('main', (() => {
   }
 
   /* ── 이벤트 핸들러 ── */
+  let isMuted = false;
+
+  function doMute() {
+    isMuted = !isMuted;
+    const screen = document.getElementById('screen');
+    if (screen) screen.style.opacity = isMuted ? '0.5' : '1';
+  }
+
   function handleKeyDown(e){
     if(e.code==='Enter')    {e.preventDefault();doRuler();return;}
     if(e.code==='Escape')   {doErase();return;}
     if(e.code==='Space')    {e.preventDefault();doPlay();return;}
     if(e.code==='Backspace'){e.preventDefault();doChange();return;}
+    if(e.code==='KeyM')     {doMute();return;}
+    if(e.code==='ArrowUp')  {e.preventDefault();doVol(-1);return;}
+    if(e.code==='ArrowDown'){e.preventDefault();doVol(1);return;}
     const colMap={'Digit1':0,'Digit2':1,'Digit3':2,'Digit4':3,'Digit5':4,'Digit6':5,'Digit7':6,'Digit8':7,'Digit9':8,'Digit0':9,'Minus':10,'Equal':11};
     if(colMap[e.code]!==undefined){e.preventDefault();doSelectCol(colMap[e.code]);return;}
     if(selectedCol>=0&&(e.code==='ArrowLeft'||e.code==='ArrowRight')){e.preventDefault();doMove(e.code==='ArrowRight'?1:-1);return;}
@@ -645,6 +816,8 @@ registerView('main', (() => {
     if(jump<0){
       wordEls=wordEls.filter(({el,beatIndex})=>{if(beatIndex*BEAT_MS>wordElapsed){el.remove();return false;}return true;});
       nextBeatIdx=Math.min(nextBeatIdx,Math.floor(wordElapsed/BEAT_MS)+1);
+      schedNextIdx=nextBeatIdx; scheduledSet.clear();
+      audioOrigin = audioCtx ? audioCtx.currentTime - wordElapsed/1000 : 0;
     }
     if(timeBar)timeBar.style.width=(Math.min(wordElapsed/TOTAL_DUR,1)*TB_W)+'px';
     if(appState==='paused')resumeWords();

@@ -6,10 +6,16 @@
 <title>Jangdan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Diphylleia&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Diphylleia&family=Noto+Serif+KR:wght@400;500;600;700;800;900&family=Noto+Serif+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+
+<!-- 공통 -->
 <link rel="stylesheet" href="styles/common.css">
-<link rel="stylesheet" href="styles/main.css">
+<link rel="stylesheet" href="styles/rhythm.css">
 <link rel="stylesheet" href="styles/world_list.css">
+
+<!-- 국가별 CSS (나라 추가 시 여기에 한 줄) -->
+<link rel="stylesheet" href="styles/1.jangdan.css">
+<link rel="stylesheet" href="styles/2.tala.css">
 </head>
 <body>
 
@@ -17,11 +23,18 @@
 <div id="app"></div>
 
 <script src="serial.js"></script>
-<script src="views/main.js"></script>
+
+<!-- 엔진 (반드시 configs보다 먼저 로드) -->
+<script src="views/rhythm.js"></script>
+
+<!-- 국가별 설정 (나라 추가 시 여기에 한 줄) -->
+<script src="views/configs/1.jangdan.js"></script>
+<script src="views/configs/2.tala.js"></script>
+
 <script src="views/world_list.js"></script>
+
 <script>
-  /* ── 진입점: 첫 뷰 마운트 ── */
-  showView('main');
+  showView('world_list');
 </script>
 </body>
 </html>

@@ -1,0 +1,37 @@
+.screen.tala-view {
+  font-family: "October Devanagari", "Noto Serif Devanagari", serif;
+}
+
+.label-tala {
+  position: absolute;
+  top: 25px; left: 25px;
+  color: #000; font-size: 21px; font-weight: 600;
+  font-family: "Noto Serif KR", serif;
+  line-height: normal; letter-spacing: -0.48px; white-space: nowrap;
+}
+
+.label-teental {
+  position: absolute;
+  top: 25px; right: 25px;
+  color: #000; font-size: 16px; font-weight: 600;
+  font-family: "Noto Serif KR", serif;
+  line-height: normal; white-space: nowrap;
+}
+
+.lyrics-block-tala {
+  position: absolute;
+  top: 350px; left: 408px;
+  width: 800px; height: 280px;
+  color: #000;
+  font-family: "October Devanagari", "Noto Serif Devanagari", serif;
+  font-size: 18px; font-weight: 400; line-height: 30px; overflow: hidden;
+}
+.lyrics-block-tala p { white-space: nowrap; margin-bottom: 0; }
+
+.translate-text {
+  position: absolute;
+  left: 408px;
+  color: #000;
+  font-family: "Source Han Serif K", "Noto Serif KR", serif;
+  font-size: 13px; font-weight: 500; line-height: 17px; white-space: nowrap;
+}

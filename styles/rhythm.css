@@ -1,0 +1,17 @@
+/* ── 모든 리듬 뷰 공통 ── */
+.rhythm-line {
+  transform: scaleY(0.5);
+  transform-origin: top left;
+  position: absolute;
+  top: 65px; left: 0;
+  width: 180px; height: 1px;
+  background: #000;
+}
+
+.translate-line {
+  transform: scaleY(0.5);
+  transform-origin: top left;
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px; background: #000;
+}

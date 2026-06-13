@@ -19,9 +19,10 @@ const Serial = (() => {
   function setStatus(connected) {
     const b = btn(); if (!b) return;
     if (connected) {
-      b.textContent='● CONNECTED'; b.style.color='#1a7a1a'; b.style.borderColor='#1a7a1a';
+      b.style.display = 'none';
     } else {
-      b.textContent='○ SERIAL';     b.style.color='#000';    b.style.borderColor='#000';
+      b.style.display = '';
+      b.textContent='○ SERIAL'; b.style.color='#000'; b.style.borderColor='#000';
     }
   }
 

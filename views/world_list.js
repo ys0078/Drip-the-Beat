@@ -92,13 +92,13 @@ registerView('world_list', (() => {
   let rotY, rotX, targetRotY, targetRotX, velY, velX;
   let smoothX, smoothY, mouseScreenX, mouseScreenY;
   let targetCircX, targetCircY, smoothCircX, smoothCircY;
-  let hoveredCountry, focusedCountry;
-  let activeContinents, activeRhythms, filterCursor;
+  let hoveredCountry, focusedCountry, navMode;
+  let activeContinents, activeRhythms, contCursor, rhyCursor;
   let isDragging, dragStartX, dragStartY, rotYStart, rotXStart, prevDragX, prevDragY;
   let currentScale, rafId;
   let canvas, ctx;
   let onKeyDown, onMouseMove, onMouseUp, onResize;
-  let filterEls;
+  let filterEls, feat1El, feat2El;
 
   const DRAG_SENS=0.0025, FRICTION=0.82, MIN_VEL=0.00001, ROT_LERP=0.15;
   const MOUSE_LERP=0.18, CIRCLE_LERP=0.18;
@@ -124,44 +124,54 @@ registerView('world_list', (() => {
 
   function centerCountry(c){
     focusedCountry=c;
+    navMode='rotary';
     targetRotY=shortestAngle(targetRotY,Math.PI/2-c.lon*Math.PI/180);
     targetRotX=Math.max(-Math.PI/2,Math.min(Math.PI/2,c.lat*Math.PI/180));
     velY=0; velX=0;
   }
 
-  function findNeighbor(dir){
+  /* ── 위/경도 그리드 (가로 N칸 × 세로 M칸) ──
+     가로 이동(F)  → 같은 위도 밴드(row) 안에서 경도순 이동
+     세로 이동(G)  → 같은 경도 밴드(col) 안에서 위도순 이동
+     → 같은 행/열 안에서만 옮겨다니므로 다음 국가를 예측 가능 */
+  const LON_BAND=45, LAT_BAND=30;
+  function gridCol(c){ return Math.floor((c.lon+180)/LON_BAND); }
+  function gridRow(c){ return Math.floor((c.lat+90)/LAT_BAND); }
+
+  function pickInitial(){
     const visible=COUNTRIES.filter(c=>{
       const {z}=latLonToXYZ(c.lat,c.lon,rotY,rotX);
       return z>0&&matchesFilter(c);
     });
     if(!visible.length)return null;
-    if(!focusedCountry||!visible.find(c=>c.code===focusedCountry.code)){
-      let best=null,bd=Infinity;
-      visible.forEach(c=>{
-        const {x,y,z}=latLonToXYZ(c.lat,c.lon,rotY,rotX);
-        const p=project(x,y,z);
-        const d=Math.hypot(p.sx-CX,p.sy-CY);
-        if(d<bd){bd=d;best=c;}
-      });
-      return best;
-    }
-    const {x:fx,y:fy,z:fz}=latLonToXYZ(focusedCountry.lat,focusedCountry.lon,rotY,rotX);
-    const fp=project(fx,fy,fz);
-    let best=null,bs=Infinity;
+    let best=null,bd=Infinity;
     visible.forEach(c=>{
-      if(c.code===focusedCountry.code)return;
       const {x,y,z}=latLonToXYZ(c.lat,c.lon,rotY,rotX);
       const p=project(x,y,z);
-      const dx=p.sx-fp.sx,dy=p.sy-fp.sy;
-      let score;
-      if(dir==='right'&&dx>5)      score=dx+Math.abs(dy)*0.5;
-      else if(dir==='left'&&dx<-5) score=-dx+Math.abs(dy)*0.5;
-      else if(dir==='down'&&dy>5)  score=dy+Math.abs(dx)*0.5;
-      else if(dir==='up'&&dy<-5)   score=-dy+Math.abs(dx)*0.5;
-      else return;
-      if(score<bs){bs=score;best=c;}
+      const d=Math.hypot(p.sx-CX,p.sy-CY);
+      if(d<bd){bd=d;best=c;}
     });
     return best;
+  }
+
+  /* axis:'row'→가로(경도) 이동, 'col'→세로(위도) 이동 / dir: +1(동·북) or -1(서·남) */
+  function findGridNeighbor(axis,dir){
+    if(!focusedCountry) return pickInitial();
+    const group=COUNTRIES.filter(c=>{
+      if(!matchesFilter(c))return false;
+      return axis==='row' ? gridRow(c)===gridRow(focusedCountry)
+                           : gridCol(c)===gridCol(focusedCountry);
+    });
+    if(group.length<=1)return null;          // 같은 행/열에 다른 나라 없음
+    const key=axis==='row'?'lon':'lat';
+    group.sort((a,b)=>a[key]-b[key]);
+    let idx=group.findIndex(c=>c.code===focusedCountry.code);
+    if(idx===-1){                             // 포커스가 필터로 제외된 경우
+      idx=0;
+      for(let i=0;i<group.length;i++){ if(group[i][key]<=focusedCountry[key]) idx=i; }
+    }
+    const n=group.length;
+    return group[((idx+dir)%n+n)%n];
   }
 
   function drawGlobe(){
@@ -212,6 +222,11 @@ registerView('world_list', (() => {
   }
 
   function loop(){
+    const ptrH=document.getElementById('ptr-h');
+    const ptrV=document.getElementById('ptr-v');
+    const ptrCirc=document.getElementById('ptr-circle');
+    if(!ptrH)return;
+
     if(!isDragging){
       velY*=FRICTION; velX*=FRICTION;
       if(Math.abs(velY)>MIN_VEL)targetRotY+=velY;
@@ -219,6 +234,22 @@ registerView('world_list', (() => {
     }
     rotY+=(targetRotY-rotY)*ROT_LERP;
     rotX+=(targetRotX-rotX)*ROT_LERP;
+
+    /* 로터리(F/G)로 선택한 국가 → 십자선/정보가 그 위치(그리드)를 따라가도록 */
+    if(navMode==='rotary'&&focusedCountry){
+      const {x,y,z}=latLonToXYZ(focusedCountry.lat,focusedCountry.lon,rotY,rotX);
+      if(z>0){
+        const p=project(x,y,z);
+        mouseScreenX=GLOB_SCREEN_X+p.sx;
+        mouseScreenY=GLOB_SCREEN_Y+p.sy;
+        targetCircX=mouseScreenX; targetCircY=mouseScreenY;
+        document.getElementById('pointer-svg').style.opacity='1';
+        feat1El.style.opacity='1'; feat2El.style.opacity='1';
+        feat1El.textContent=focusedCountry.continent;
+        feat2El.textContent=focusedCountry.rhythm;
+      }
+    }
+
     smoothX+=(mouseScreenX-smoothX)*MOUSE_LERP;
     smoothY+=(mouseScreenY-smoothY)*MOUSE_LERP;
     smoothCircX+=(targetCircX-smoothCircX)*CIRCLE_LERP;
@@ -227,20 +258,16 @@ registerView('world_list', (() => {
     const marginX=(window.innerWidth-1920*currentScale)/2;
     const marginY=(window.innerHeight-1080*currentScale)/2;
     const extraX=marginX/currentScale, extraY=marginY/currentScale;
-    const ptrH=document.getElementById('ptr-h');
-    const ptrV=document.getElementById('ptr-v');
-    const ptrCirc=document.getElementById('ptr-circle');
-    const feat1=document.getElementById('feat1');
-    const feat2=document.getElementById('feat2');
-    if(!ptrH)return;
     ptrH.setAttribute('x1',-extraX); ptrH.setAttribute('y1',smoothY);
     ptrH.setAttribute('x2',1920+extraX); ptrH.setAttribute('y2',smoothY);
     ptrV.setAttribute('x1',smoothX); ptrV.setAttribute('y1',-extraY);
     ptrV.setAttribute('x2',smoothX); ptrV.setAttribute('y2',1080+extraY);
     ptrCirc.setAttribute('cx',smoothX); ptrCirc.setAttribute('cy',smoothY);
-    if(feat1.style.opacity!=='0'){
-      feat1.style.top=Math.max(70,smoothY-30)+'px';
-      feat2.style.top=Math.max(70,smoothY-1)+'px';
+    /* feat: position:fixed on body → viewport 좌표 변환 */
+    if(feat1El.style.opacity!=='0'){
+      const viewY=marginY+smoothY*currentScale;
+      feat1El.style.top=Math.max(70,viewY-30*currentScale)+'px';
+      feat2El.style.top=Math.max(70,viewY-1*currentScale)+'px';
     }
     drawGlobe();
     rafId=requestAnimationFrame(loop);
@@ -258,6 +285,9 @@ registerView('world_list', (() => {
     document.querySelectorAll('.filter-row').forEach(el=>el.style.fontSize=fs+'px');
     const fw=document.querySelector('.filter-wrap');
     if(fw)fw.style.gap=gap+'px';
+    const featFs=Math.round(21*currentScale*10)/10;
+    if(feat1El) feat1El.style.fontSize=featFs+'px';
+    if(feat2El) feat2El.style.fontSize=featFs+'px';
   }
 
   function updateFilterUI(){
@@ -265,7 +295,8 @@ registerView('world_list', (() => {
       const item=FILTER_ITEMS[idx]; if(!item)return;
       const isActive=item.type==='continent'?activeContinents.has(item.val):activeRhythms.has(item.val);
       el.classList.toggle('active',isActive);
-      el.classList.toggle('cursor',idx===filterCursor);
+      const isCursor = item.type==='continent' ? idx===contCursor : (idx-5)===rhyCursor;
+      el.classList.toggle('cursor',isCursor);
     });
   }
 
@@ -277,8 +308,8 @@ registerView('world_list', (() => {
     targetRotY=rotY; targetRotX=rotX; velY=0; velX=0;
     smoothX=960; smoothY=540; mouseScreenX=960; mouseScreenY=540;
     targetCircX=960; targetCircY=540; smoothCircX=960; smoothCircY=540;
-    hoveredCountry=null; focusedCountry=null;
-    activeContinents=new Set(); activeRhythms=new Set(); filterCursor=0;
+    hoveredCountry=null; focusedCountry=null; navMode='mouse';
+    activeContinents=new Set(); activeRhythms=new Set(); contCursor=0; rhyCursor=0;
     isDragging=false; currentScale=1;
 
     document.getElementById('app').innerHTML = `
@@ -316,9 +347,12 @@ registerView('world_list', (() => {
           <line id="ptr-v" stroke="#000" stroke-width="0.85"/>
           <circle id="ptr-circle" r="7.5" fill="none" stroke="#000" stroke-width="2.5"/>
         </svg>
-        <div class="point-feature" id="feat1"></div>
-        <div class="point-feature" id="feat2"></div>
       </div>`;
+
+    /* feat1/feat2를 body에 생성 — transform:scale() 영향 밖, position:fixed 정상 작동 */
+    feat1El=document.createElement('div'); feat1El.className='point-feature'; feat1El.id='feat1';
+    feat2El=document.createElement('div'); feat2El.className='point-feature'; feat2El.id='feat2';
+    document.body.appendChild(feat1El); document.body.appendChild(feat2El);
 
     canvas=document.getElementById('globe-canvas');
     ctx=canvas.getContext('2d');
@@ -333,7 +367,8 @@ registerView('world_list', (() => {
         const item=FILTER_ITEMS[idx]; if(!item)return;
         const set=item.type==='continent'?activeContinents:activeRhythms;
         if(set.has(item.val))set.delete(item.val); else set.add(item.val);
-        filterCursor=idx; updateFilterUI();
+        if(item.type==='continent') contCursor=idx; else rhyCursor=idx-5;
+        updateFilterUI();
       });
     });
     updateFilterUI();
@@ -348,6 +383,7 @@ registerView('world_list', (() => {
       velY=0; velX=0; e.preventDefault();
     });
     hitarea.addEventListener('mousemove',(e)=>{
+      navMode='mouse';
       const sx=(e.clientX-(window.innerWidth-1920*currentScale)/2)/currentScale;
       const sy=(e.clientY-(window.innerHeight-1080*currentScale)/2)/currentScale;
       document.getElementById('pointer-svg').style.opacity='1';
@@ -363,17 +399,14 @@ registerView('world_list', (() => {
       hoveredCountry=nearest;
       targetCircX=nearest?nearest.px:sx;
       targetCircY=nearest?nearest.py:sy;
-      const feat1=document.getElementById('feat1'), feat2=document.getElementById('feat2');
       if(nearest){
-        feat1.style.opacity='1'; feat2.style.opacity='1';
-        feat1.style.left='17px'; feat2.style.left='17px';
-        feat1.textContent=nearest.continent; feat2.textContent=nearest.rhythm;
-      } else { feat1.style.opacity='0'; feat2.style.opacity='0'; }
+        feat1El.style.opacity='1'; feat2El.style.opacity='1';
+        feat1El.textContent=nearest.continent; feat2El.textContent=nearest.rhythm;
+      } else { feat1El.style.opacity='0'; feat2El.style.opacity='0'; }
     });
     hitarea.addEventListener('mouseleave',()=>{
       document.getElementById('pointer-svg').style.opacity='0';
-      document.getElementById('feat1').style.opacity='0';
-      document.getElementById('feat2').style.opacity='0';
+      feat1El.style.opacity='0'; feat2El.style.opacity='0';
       hoveredCountry=null;
     });
     hitarea.addEventListener('click',(e)=>{
@@ -391,6 +424,7 @@ registerView('world_list', (() => {
     });
 
     onMouseMove=(e)=>{
+      navMode='mouse';
       mouseScreenX=(e.clientX-(window.innerWidth-1920*currentScale)/2)/currentScale;
       mouseScreenY=(e.clientY-(window.innerHeight-1080*currentScale)/2)/currentScale;
       if(isDragging){
@@ -404,7 +438,7 @@ registerView('world_list', (() => {
     };
     onMouseUp=()=>{ isDragging=false; };
     onKeyDown=(e)=>{
-      if(e.code==='Backspace'){e.preventDefault(); showView('main');}
+      if(e.code==='Backspace'){e.preventDefault(); showView('world_list');}
       if(e.code==='Enter'){e.preventDefault(); doSelectCountry();}
     };
     onResize=scaleScreen;
@@ -427,41 +461,71 @@ registerView('world_list', (() => {
     window.removeEventListener('mouseup',   onMouseUp);
     document.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize',    onResize);
+    if(feat1El&&feat1El.parentNode) feat1El.remove();
+    if(feat2El&&feat2El.parentNode) feat2El.remove();
     document.getElementById('app').innerHTML='';
   }
 
+  /* 국가 코드 → 뷰 이름 매핑
+     새 나라 추가 시 여기만 수정 */
+  const COUNTRY_VIEW = {
+    'KR': 'main',
+    'IN': 'tala',
+    /* 'JP': 'japan', */
+    /* 'BR': 'samba',  */
+  };
+
   function selectCountry(c){
-    if(c.code==='KR') showView('main');
-    // 다른 국가 페이지 추가 시: else if(c.code==='JP') showView('japan'); 등
+    const view = COUNTRY_VIEW[c.code];
+    if (!view) return; /* 매핑 없는 국가 */
+    if (!views[view]) { console.warn('[world_list] 뷰 미등록:', view, '→ index.html에 해당 config 파일이 로드됐는지 확인하세요.'); return; }
+    showView(view);
   }
 
   function doSelectCountry(){
-    const c=focusedCountry||hoveredCountry;
-    if(c)selectCountry(c);
+    const c=focusedCountry||hoveredCountry||pickInitial();
+    if(c){
+      if(!focusedCountry) centerCountry(c);
+      selectCountry(c);
+    }
   }
 
   /* ── 시리얼 명령 핸들러 ── */
   function handleCommand(cmd){
     switch(cmd){
-      case 'CHANGE': showView('main');   break;
-      case 'PLAY':   doSelectCountry();  break;
-      case 'E+':     doFilterMove(1);    break;  // 필터 커서 ↓
-      case 'E-':     doFilterMove(-1);   break;  // 필터 커서 ↑
-      case 'F+':   { const n=findNeighbor('right'); if(n)centerCountry(n); break; }
-      case 'F-':   { const n=findNeighbor('left');  if(n)centerCountry(n); break; }
-      case 'G+':   { const n=findNeighbor('down');  if(n)centerCountry(n); break; }
-      case 'G-':   { const n=findNeighbor('up');    if(n)centerCountry(n); break; }
+      case 'CHANGE': showView('world_list'); break;
+      case 'PLAY':   doSelectCountry();  break;   // SW A, SW E → 박자(국가) 선택
+      case 'FSEL1':  doContToggle();     break;   // SW B → 대륙 필터 토글
+      case 'FSEL2':  doRhyToggle();      break;   // SW D → 리듬 필터 토글
+      case 'H+':     doContMove(-1);     break;   // 로터리 B → 대륙 커서 ←
+      case 'H-':     doContMove(1);      break;   // 로터리 B → 대륙 커서 →
+      case 'GVOL+':  doRhyMove(-1);      break;   // 로터리 D → 리듬 커서 ←
+      case 'GVOL-':  doRhyMove(1);       break;   // 로터리 D → 리듬 커서 →
+      case 'F+':   { const n=findGridNeighbor('col', 1); if(n)centerCountry(n); break; }  // 로터리 A → 세로
+      case 'F-':   { const n=findGridNeighbor('col',-1); if(n)centerCountry(n); break; }
+      case 'G+':   { const n=findGridNeighbor('row', 1); if(n)centerCountry(n); break; }  // 로터리 B → 가로
+      case 'G-':   { const n=findGridNeighbor('row',-1); if(n)centerCountry(n); break; }
     }
   }
 
-  function doFilterMove(dir){
-    filterCursor=(filterCursor+dir+FILTER_ITEMS.length)%FILTER_ITEMS.length;
+  function doContMove(dir){
+    contCursor=((contCursor+dir)%5+5)%5;
     updateFilterUI();
   }
-  function doFilterToggle(){
-    const item=FILTER_ITEMS[filterCursor];
-    const set=item.type==='continent'?activeContinents:activeRhythms;
-    if(set.has(item.val))set.delete(item.val); else set.add(item.val);
+  function doRhyMove(dir){
+    rhyCursor=((rhyCursor+dir)%5+5)%5;
+    updateFilterUI();
+  }
+  function doContToggle(){
+    const item=FILTER_ITEMS[contCursor];
+    if(activeContinents.has(item.val)) activeContinents.delete(item.val);
+    else activeContinents.add(item.val);
+    updateFilterUI();
+  }
+  function doRhyToggle(){
+    const item=FILTER_ITEMS[5+rhyCursor];
+    if(activeRhythms.has(item.val)) activeRhythms.delete(item.val);
+    else activeRhythms.add(item.val);
     updateFilterUI();
   }
 
