@@ -684,12 +684,16 @@ function createRhythmView(cfg) {
           const s = cfg.beatPattern[wIdx % cfg.beatPattern.length];
           wIdx++;
           const span = document.createElement('span');
-          span.textContent = word + ' ';
+          span.textContent = word;
           if (s === 3) span.style.cssText = 'font-weight:800;';
           else if (s === 2) span.style.cssText = 'font-weight:500;';
           else if (s === 1) span.style.cssText = 'font-weight:500;letter-spacing:8px;';
           else span.style.cssText = 'font-weight:200;opacity:0.4;';
           lineEl.appendChild(span);
+          /* 단어 사이 간격: style 1(약박)의 자간(8px)과 동일하게 통일 */
+          const gap = document.createElement('span');
+          gap.style.cssText = 'display:inline-block;width:8px;';
+          lineEl.appendChild(gap);
         });
         rowBg.appendChild(lineEl);
         eraseRevealEl.appendChild(rowBg);
