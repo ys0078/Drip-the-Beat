@@ -66,6 +66,7 @@ function createRhythmView(cfg) {
   const TICK_MAX  = cfg.tickSpacing * 4.0;
   /* ruler 위치 상수 */
   const RULER_TOP    = 85;
+  const TRANSLATE_BOTTOM = 926; /* 번역 영역 하단 기준 — translateLines가 위쪽으로 쌓임 */
   const RULER_NUM_Y  = 70;
   const RULER_HEIGHT = Math.round(27 * 3 / 4);        /* 27 * 0.75 = 20 */
   const RULER_BOTTOM = RULER_TOP + RULER_HEIGHT;      /* = 125 */
@@ -88,7 +89,27 @@ function createRhythmView(cfg) {
     return events;
   }
   const EVENTS    = buildEvents();
-  const TOTAL_DUR = EVENTS.length * BEAT_MS;
+  let TOTAL_DUR;
+  let EVENT_TIMES; /* EVENT_TIMES[i] = i번째 이벤트의 발화 시각(ms) */
+
+  /* 빈 박 건너뛰기 + halfSplit(0.5박) 지원 — startWords/replayWords에서 호출 */
+  function buildEventTimes() {
+    EVENT_TIMES = new Array(EVENTS.length).fill(0);
+    let t = 0;
+    let lastRow = -1;
+    for (let i = 0; i < EVENTS.length; i++) {
+      const ev = getEvent(i);
+      if (cfg.staggerRows && ev.row !== lastRow && ev.row % 2 === 1) {
+        t += BEAT_MS / 2; /* 짝수행 진입 시 반박 지연 — 시각 엇갈림과 동기화 */
+      }
+      lastRow = ev.row;
+      EVENT_TIMES[i] = t;
+      if (ev.word !== null && ev.style !== 0) {
+        t += BEAT_MS; /* halfSplit도 1박 전체를 차지 — 내부에서 0.5+0.5로 분할 */
+      }
+    }
+    TOTAL_DUR = t || 1;
+  }
 
   /* ── 공통 유틸 ── */
   function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
@@ -229,7 +250,7 @@ function createRhythmView(cfg) {
     _scheduleBuffer(audioBufs[soundKey]?.[variant], audioTime, gainVal);
   }
 
-  function playBeat(col, style, beatAudioTime, splitN = 1) {
+  function playBeat(col, style, beatAudioTime, splitN = 1, intervalSec = BEAT_MS / 1000) {
     if (!audioCtx || style === 0 || isMuted) return;
     if (DOUBLE_WEAK_SKIP.has(col)) return;
 
@@ -247,7 +268,7 @@ function createRhythmView(cfg) {
       _scheduleBuffer(buf, startTime - LOOKAHEAD, gain);
     }
 
-    if (cfg.extraOnBeat) cfg.extraOnBeat(col, style, beatAudioTime, playRawSound);
+    if (cfg.extraOnBeat) cfg.extraOnBeat(col, style, beatAudioTime, playRawSound, intervalSec);
   }
 
   /* ══════════════════════════════
@@ -304,6 +325,7 @@ function createRhythmView(cfg) {
     document.getElementById('app').innerHTML = cfg.getHTML();
     screenEl = document.getElementById('screen');
     buildRuler();
+    buildTranslateArea();
     scaleScreen();
 
     rulerResetOverlay = document.createElement('div');
@@ -361,6 +383,33 @@ function createRhythmView(cfg) {
   }
 
   /* ── Ruler ── */
+  let calcTranslateTop; /* buildTranslateArea에서 자동 계산 */
+
+  /* translateLines가 있으면 TRANSLATE_BOTTOM(929)을 기준으로
+     위쪽으로 쌓이는 translate-line/translate-text를 자동 생성 */
+  function buildTranslateArea() {
+    if (!cfg.translateLines?.length) { calcTranslateTop = undefined; return; }
+    const lineH = cfg.translateLineHeight ?? 17;
+    const n = cfg.translateLines.length;
+    calcTranslateTop = TRANSLATE_BOTTOM - n * lineH;
+
+    /* n+1개의 구분선 (상단 경계 ~ 하단 경계) */
+    for (let i = 0; i <= n; i++) {
+      const line = document.createElement('div');
+      line.className = 'translate-line';
+      line.style.top = (calcTranslateTop + i * lineH) + 'px';
+      screenEl.appendChild(line);
+    }
+    /* n개의 텍스트 */
+    for (let i = 0; i < n; i++) {
+      const text = document.createElement('div');
+      text.className = 'translate-text';
+      text.style.top = (calcTranslateTop + i * lineH) + 'px';
+      text.textContent = cfg.translateLines[i];
+      screenEl.appendChild(text);
+    }
+  }
+
   function buildRuler() {
     const svg = document.getElementById('ruler-svg');
     const NS  = 'http://www.w3.org/2000/svg';
@@ -411,7 +460,7 @@ function createRhythmView(cfg) {
     }
     if (subtitleEl) {
       subtitleEl.style.fontSize = (16 * currentScale) + 'px';
-      subtitleEl.style.top      = (25 * currentScale) + 'px';
+      subtitleEl.style.top      = (30 * currentScale) + 'px';
       const titleRight = titleEl ? titleEl.getBoundingClientRect().right : (25 * currentScale);
       subtitleEl.style.left = (titleRight + 10 * currentScale) + 'px';
     }
@@ -663,7 +712,7 @@ function createRhythmView(cfg) {
 
     /* 지우개가 지나간 자리에 번역을 흐르는 텍스트로 reveal */
     eraseRevealEl = null;
-    if (cfg.translateLines?.length && cfg.translateTop !== undefined) {
+    if (cfg.translateLines?.length && calcTranslateTop !== undefined) {
       eraseRevealEl = document.createElement('div');
       eraseRevealEl.style.cssText = `position:absolute;top:0;left:0;width:0;height:1080px;overflow:hidden;pointer-events:none;`;
 
@@ -674,7 +723,7 @@ function createRhythmView(cfg) {
       cfg.translateLines.forEach((line, li) => {
         /* 줄마다 흰 배경을 분리 — 상단 GAP px는 칠하지 않아 translate-line이 보이도록 */
         const rowBg = document.createElement('div');
-        rowBg.style.cssText = `position:absolute;top:${cfg.translateTop + li*lineH + GAP}px;left:0;width:1920px;` +
+        rowBg.style.cssText = `position:absolute;top:${calcTranslateTop + li*lineH + GAP}px;left:0;width:1920px;` +
           `height:${lineH - GAP}px;background:#fff;`;
 
         const lineEl = document.createElement('div');
@@ -685,7 +734,7 @@ function createRhythmView(cfg) {
           wIdx++;
           const span = document.createElement('span');
           span.textContent = word;
-          if (s === 3) span.style.cssText = 'font-weight:800;';
+          if (s === 3) span.style.cssText = 'font-weight:700;';
           else if (s === 2) span.style.cssText = 'font-weight:500;';
           else if (s === 1) span.style.cssText = 'font-weight:500;letter-spacing:8px;';
           else span.style.cssText = 'font-weight:200;opacity:0.4;';
@@ -728,6 +777,7 @@ function createRhythmView(cfg) {
     /* translate block은 DOM에 유지 — erase 후에도 번역이 보여야 함 */
     if (eraseRevealEl) { eraseRevealEl.style.width = '3000px'; eraseRevealEl = null; }
     wordElapsed=0; nextBeatIdx=0; wordEls=[];
+    buildEventTimes();
     schedNextIdx=0; scheduledSet.clear();
     audioOrigin = audioCtx ? audioCtx.currentTime : 0;
     appState='playing'; wordStartTs=null; playbackRate=1;
@@ -757,16 +807,22 @@ function createRhythmView(cfg) {
 
     /* 오디오 lookahead 스케줄링 */
     if (audioCtx) {
-      while (schedNextIdx < EVENTS.length && wordElapsed + SCHED_AHEAD >= schedNextIdx*BEAT_MS) {
+      while (schedNextIdx < EVENTS.length && wordElapsed + SCHED_AHEAD >= EVENT_TIMES[schedNextIdx]) {
         if (!scheduledSet.has(schedNextIdx) && !deletedBeats.has(schedNextIdx)) {
           const sev = getEvent(schedNextIdx);
           const splitN = beatSplits[sev.col] || 1;
           /* beatAudioTime: 현재 시점에서 이 박까지 남은 wordElapsed를
              playbackRate로 나눠 실제 소요 시간을 구한 뒤 오디오 클럭에 더함
              → 속도가 빨라지면 소리도 같은 비율로 당겨짐 */
-          const msUntilBeat = schedNextIdx * BEAT_MS - wordElapsed;
+          const msUntilBeat = EVENT_TIMES[schedNextIdx] - wordElapsed;
           const beatAudioTime = audioCtx.currentTime + msUntilBeat / (playbackRate * 1000);
-          playBeat(sev.col, sev.style, beatAudioTime, splitN);
+          if (sev.halfSplit) {
+            const halfSec = BEAT_MS / 2 / (playbackRate * 1000);
+            playBeat(sev.col, sev.style, beatAudioTime, splitN, halfSec);
+            playBeat(sev.col, sev.style, beatAudioTime + halfSec, 1, halfSec);
+          } else {
+            playBeat(sev.col, sev.style, beatAudioTime, splitN);
+          }
           scheduledSplits[schedNextIdx] = splitN;
           if (splitN > 1) beatSplits[sev.col] = 1;
         }
@@ -775,7 +831,7 @@ function createRhythmView(cfg) {
       }
     }
 
-    while (nextBeatIdx < EVENTS.length && wordElapsed >= nextBeatIdx*BEAT_MS) {
+    while (nextBeatIdx < EVENTS.length && wordElapsed >= EVENT_TIMES[nextBeatIdx]) {
       const ev = getEvent(nextBeatIdx);
 
       if (ev.row !== lastSentRow) {
@@ -844,21 +900,25 @@ function createRhythmView(cfg) {
           }
           lastPlayedCol = firstCol; /* 이후 로터리 조작은 5/11박(병합 단위)을 대상으로 */
         } else {
-        const N = scheduledSplits[nextBeatIdx] || 1;
+        const isHalf = ev.halfSplit === true;
+        const N = isHalf ? 2 : (scheduledSplits[nextBeatIdx] || 1);
         delete scheduledSplits[nextBeatIdx];
         const wordTop = cfg.getWordTop ? cfg.getWordTop(ev.row, ev.style) : cfg.rowTopStart + ev.row*cfg.rowGap;
         const colApplied = beatDotOffsetX[ev.col] !== 0 ? beatDotOffsetX[ev.col]*wordTop/COL_DOT_Y : 0;
         const baseLeft = TICK_XS[ev.col] + colApplied;
         const subW = tickWidth(ev.col) / N;
+        const staggerX = (cfg.staggerRows && ev.row % 2 === 1) ? cfg.tickSpacing / 2 : 0;
+        const chars = isHalf ? [...ev.word] : null; /* halfSplit이면 글자별 분리 */
 
         function placeSubWord(s) {
           const el = document.createElement('div');
           const subOffset = s * tickWidth(ev.col) / N;
           const xOff = beatDotOffsetX[ev.col] * wordTop / COL_DOT_Y;
-          const left = TICK_XS[ev.col] + xOff + subOffset + rowOffsets[ev.row];
+          const left = TICK_XS[ev.col] + xOff + subOffset + rowOffsets[ev.row] + staggerX;
           el.style.cssText = cfg.getWordStyle(ev.style) + `top:${wordTop}px;left:${(((left)%1920)+1920)%1920}px;width:${subW}px;`;
           el.dataset.baseWidth = subW;
-          el.textContent = ev.word; el._baseStyle = ev.style;
+          el.textContent = (chars && chars[s]) ? chars[s] : ev.word;
+          el._baseStyle = ev.style;
           if (s === N-1) { colLatestWordEl[ev.col] = el; colLatestWordInfo[ev.col] = {word:ev.word, style:ev.style, top:wordTop, row:ev.row, beatIndex:nextBeatIdx}; }
           el.addEventListener('mousedown', e => { if (e.button!==0) return; startRowDrag(ev.row, e.clientX); e.preventDefault(); e.stopPropagation(); });
           el.addEventListener('dblclick',  e => { e.stopPropagation(); resetRowAnim(ev.row); });
@@ -870,7 +930,8 @@ function createRhythmView(cfg) {
         /* s=0 즉시 배치, s=1..N-1 은 각 sub-beat 시점에 맞춰 큐에 추가 */
         placeSubWord(0);
         for (let s = 1; s < N; s++) {
-          const fireTime = nextBeatIdx * BEAT_MS + s * BEAT_MS / N;
+          const halfMs = isHalf ? BEAT_MS / 2 : BEAT_MS / N;
+          const fireTime = EVENT_TIMES[nextBeatIdx] + s * halfMs;
           subBeatQueue.push({fireTime, s, N, place: placeSubWord.bind(null, s)});
         }
         }
@@ -928,7 +989,8 @@ function createRhythmView(cfg) {
         lastSentRow=-1; colLatestWordEl.fill(null); colLatestWordInfo.fill(null);
         wordElapsed=0; nextBeatIdx=0; appState='playing'; wordStartTs=null; playbackRate=1;
         schedNextIdx=0; scheduledSet.clear(); subBeatQueue=[]; scheduledSplits={};
-        colOrderCache={}; /* 현재 박 위치 기준으로 재생 순서 다시 계산 */
+        colOrderCache={};
+        buildEventTimes();
         /* 리플레이 시 라인 확장 애니메이션 생략 — 이미 펼쳐진 상태 유지 */
         beatLineExtended.fill(true);
         audioOrigin = audioCtx ? audioCtx.currentTime : 0;
@@ -987,6 +1049,7 @@ function createRhythmView(cfg) {
     screenEl = document.getElementById('screen');
     if (!rulerResetOverlay.parentNode) screenEl.appendChild(rulerResetOverlay);
     buildRuler();
+    buildTranslateArea();
     scaleScreen();
     preloadRaw();
   }
@@ -1018,23 +1081,46 @@ function createRhythmView(cfg) {
   function doDesel() {
     selectedCols.forEach(col => {
       const dotEl = beatDotEls[col] || rulerDotCircles[col];
-      if (dotEl) { dotEl.setAttribute('fill', 'none'); dotEl.setAttribute('r', 6); }
+      if (dotEl) animateDotSelect(dotEl, false);
     });
     selectedCols.clear();
   }
 
   /* 키 누를 때 토글 선택 */
   function toggleSelectCol(col) {
-    if (MERGED_INTO.has(col)) return; /* 6/12박: 선택 동작 없음 — 5/11박과 병합됨 */
-    /* 재생 전 → rulerDotCircles 사용, 재생 후 → beatDotEls 사용 */
+    if (MERGED_INTO.has(col)) return;
     const dotEl = beatDotEls[col] || rulerDotCircles[col];
+    if (!dotEl) return;
     if (selectedCols.has(col)) {
       selectedCols.delete(col);
-      if (dotEl) { dotEl.setAttribute('fill', 'none'); dotEl.setAttribute('r', 6); }
+      animateDotSelect(dotEl, false);
     } else {
       selectedCols.add(col);
-      if (dotEl) { dotEl.setAttribute('fill', '#000'); dotEl.setAttribute('r', 9); }
+      animateDotSelect(dotEl, true);
     }
+  }
+
+  function animateDotSelect(dot, selecting) {
+    const fromR = parseFloat(dot.getAttribute('r')) || 6;
+    const toR   = selecting ? 9 : 6;
+    const dur   = 180;
+    let ts0 = null;
+    function step(ts) {
+      if (!ts0) ts0 = ts;
+      const t = Math.min((ts - ts0) / dur, 1);
+      const ease = 1 - (1 - t) * (1 - t); // easeOut
+      const r = fromR + (toR - fromR) * ease;
+      dot.setAttribute('r', r);
+      /* fill: 흰→검 (selecting) 또는 검→흰 (deselecting) */
+      const gray = selecting ? Math.round(255 * (1 - ease)) : Math.round(255 * ease);
+      dot.setAttribute('fill', gray === 255 ? 'none' : `rgb(${gray},${gray},${gray})`);
+      if (t < 1) requestAnimationFrame(step);
+      else {
+        dot.setAttribute('r', toR);
+        dot.setAttribute('fill', selecting ? '#000' : 'none');
+      }
+    }
+    requestAnimationFrame(step);
   }
 
   /* 선택된 cols가 없으면 마지막 연주된 col 반환 */
@@ -1314,8 +1400,8 @@ function createRhythmView(cfg) {
       case 'F-':     doMove(-1);   break;
       case 'G+':     doSplit(1);   break;
       case 'G-':     doSplit(-1);  break;
-      case 'H+':     doSpeed(1);   break;
-      case 'H-':     doSpeed(-1);  break;
+      case 'H+':     doSpeed(-1);  break;
+      case 'H-':     doSpeed(1);   break;
     }
   }
 

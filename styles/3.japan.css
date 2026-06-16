@@ -1,0 +1,13 @@
+.screen.odori-view {
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif;
+}
+
+.lyrics-block-odori {
+  position: absolute;
+  top: 335px; left: 408px;
+  width: 800px; height: 370px;
+  color: #000;
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", serif;
+  font-size: 18px; font-weight: 400; line-height: 30px; overflow: hidden;
+}
+.lyrics-block-odori p { white-space: nowrap; margin-bottom: 0; }

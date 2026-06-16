@@ -471,7 +471,7 @@ registerView('world_list', (() => {
   const COUNTRY_VIEW = {
     'KR': 'main',
     'IN': 'tala',
-    /* 'JP': 'japan', */
+    'JP': 'odori',
     /* 'BR': 'samba',  */
   };
 

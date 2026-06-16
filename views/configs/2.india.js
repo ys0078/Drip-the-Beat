@@ -27,7 +27,6 @@ registerView('tala', createRhythmView({
     .split(' ').filter(w => w.length > 0),
 
   /* ── 한글 번역 (기존 translate-text와 동일한 줄바꿈, beatPattern으로 스타일링) ── */
-  translateTop: 861,
   translateLineHeight: 17,
   translateLeft: 408,
   translateLines: [
@@ -116,15 +115,6 @@ registerView('tala', createRhythmView({
           <p>आज लाया हूँ वही गीत मैं तेरे लिये</p>
           <p>जलते हैं जिसके लिये</p>
         </div>
-        <div class="translate-line" style="top:929px;"></div>
-        <div class="translate-line" style="top:912px;"></div>
-        <div class="translate-line" style="top:895px;"></div>
-        <div class="translate-line" style="top:878px;"></div>
-        <div class="translate-line" style="top:861px;"></div>
-        <div class="translate-text" style="top:861px;">내 가슴속에 고통으로 남아 사라지지 않던 것, 그대 눈속에 마법처럼 머물러 움직이지 않던 것</div>
-        <div class="translate-text" style="top:878px;">내 가슴속에 고통으로 남아 사라지지 않던 것, 그대 눈속에 마법처럼 머물러 움직이지 않던 것</div>
-        <div class="translate-text" style="top:895px;">오늘 오직 그대만을 위한 그 노래를 가져왔노라</div>
-        <div class="translate-text" style="top:912px;">그것을 위해 타오르는</div>
       </div>`;
   },
 
