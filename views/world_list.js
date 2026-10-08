@@ -4,88 +4,22 @@
 registerView('world_list', (() => {
 
   const COUNTRIES = [
-    { code:'KR', name:'Korea',         lat:37.5,  lon:127.0,  continent:'Asia',    rhythm:'Cyclical' },
-    { code:'JP', name:'Japan',         lat:35.7,  lon:139.7,  continent:'Asia',    rhythm:'Cyclical' },
-    { code:'CN', name:'China',         lat:39.9,  lon:116.4,  continent:'Asia',    rhythm:'Periodic' },
-    { code:'IN', name:'India',         lat:20.6,  lon:78.9,   continent:'Asia',    rhythm:'Cyclical' },
-    { code:'ID', name:'Indonesia',     lat:-0.8,  lon:113.9,  continent:'Asia',    rhythm:'Cyclical' },
-    { code:'IR', name:'Iran',          lat:32.4,  lon:53.7,   continent:'Asia',    rhythm:'Free' },
-    { code:'TR', name:'Turkey',        lat:38.9,  lon:35.2,   continent:'Asia',    rhythm:'Cyclical' },
-    { code:'AE', name:'UAE',           lat:23.4,  lon:53.8,   continent:'Asia',    rhythm:'Cyclical' },
-    { code:'SA', name:'Saudi Arabia',  lat:23.9,  lon:45.1,   continent:'Asia',    rhythm:'Cyclical' },
-    { code:'SY', name:'Syria',         lat:34.8,  lon:38.9,   continent:'Asia',    rhythm:'Free' },
-    { code:'LB', name:'Lebanon',       lat:33.9,  lon:35.5,   continent:'Asia',    rhythm:'Free' },
-    { code:'JO', name:'Jordan',        lat:30.6,  lon:36.2,   continent:'Asia',    rhythm:'Free' },
-    { code:'IQ', name:'Iraq',          lat:33.2,  lon:43.7,   continent:'Asia',    rhythm:'Free' },
-    { code:'VN', name:'Vietnam',       lat:14.1,  lon:108.3,  continent:'Asia',    rhythm:'Cyclical' },
-    { code:'TH', name:'Thailand',      lat:15.9,  lon:100.9,  continent:'Asia',    rhythm:'Cyclical' },
-    { code:'EG', name:'Egypt',         lat:26.8,  lon:30.8,   continent:'Africa',  rhythm:'Cyclical' },
-    { code:'MA', name:'Morocco',       lat:31.8,  lon:-7.1,   continent:'Africa',  rhythm:'Cyclical' },
-    { code:'DZ', name:'Algeria',       lat:28.0,  lon:1.7,    continent:'Africa',  rhythm:'Cyclical' },
-    { code:'TN', name:'Tunisia',       lat:33.9,  lon:9.5,    continent:'Africa',  rhythm:'Cyclical' },
-    { code:'NG', name:'Nigeria',       lat:9.1,   lon:8.7,    continent:'Africa',  rhythm:'Poly' },
-    { code:'GH', name:'Ghana',         lat:7.9,   lon:-1.0,   continent:'Africa',  rhythm:'Poly' },
-    { code:'SN', name:'Senegal',       lat:14.5,  lon:-14.5,  continent:'Africa',  rhythm:'Poly' },
-    { code:'ML', name:'Mali',          lat:17.6,  lon:-4.0,   continent:'Africa',  rhythm:'Poly' },
-    { code:'BJ', name:'Benin',         lat:9.3,   lon:2.3,    continent:'Africa',  rhythm:'Poly' },
-    { code:'TG', name:'Togo',          lat:8.6,   lon:0.8,    continent:'Africa',  rhythm:'Poly' },
-    { code:'CI', name:"Cote d'Ivoire", lat:7.5,   lon:-5.5,   continent:'Africa',  rhythm:'Poly' },
-    { code:'CM', name:'Cameroon',      lat:3.8,   lon:11.5,   continent:'Africa',  rhythm:'Poly' },
-    { code:'CD', name:'DR Congo',      lat:-4.0,  lon:21.8,   continent:'Africa',  rhythm:'Poly' },
-    { code:'AO', name:'Angola',        lat:-11.2, lon:17.9,   continent:'Africa',  rhythm:'Poly' },
-    { code:'ZA', name:'South Africa',  lat:-30.6, lon:22.9,   continent:'Africa',  rhythm:'Poly' },
-    { code:'KE', name:'Kenya',         lat:0.0,   lon:37.9,   continent:'Africa',  rhythm:'Poly' },
-    { code:'TZ', name:'Tanzania',      lat:-6.4,  lon:34.9,   continent:'Africa',  rhythm:'Poly' },
-    { code:'UG', name:'Uganda',        lat:1.4,   lon:32.3,   continent:'Africa',  rhythm:'Poly' },
-    { code:'ET', name:'Ethiopia',      lat:9.1,   lon:40.5,   continent:'Africa',  rhythm:'Free' },
-    { code:'SD', name:'Sudan',         lat:12.9,  lon:30.2,   continent:'Africa',  rhythm:'Free' },
-    { code:'GR', name:'Greece',        lat:39.1,  lon:21.8,   continent:'Europe',  rhythm:'Free' },
-    { code:'BG', name:'Bulgaria',      lat:42.7,  lon:25.5,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'RS', name:'Serbia',        lat:44.0,  lon:21.0,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'MK', name:'N.Macedonia',   lat:41.6,  lon:21.7,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'RO', name:'Romania',       lat:45.9,  lon:24.9,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'HU', name:'Hungary',       lat:47.2,  lon:19.5,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'PL', name:'Poland',        lat:51.9,  lon:19.1,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'DE', name:'Germany',       lat:51.2,  lon:10.5,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'FR', name:'France',        lat:46.2,  lon:2.2,    continent:'Europe',  rhythm:'Periodic' },
-    { code:'IT', name:'Italy',         lat:41.9,  lon:12.6,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'ES', name:'Spain',         lat:40.5,  lon:-3.7,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'PT', name:'Portugal',      lat:39.4,  lon:-8.2,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'GB', name:'UK',            lat:55.4,  lon:-3.4,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'IE', name:'Ireland',       lat:53.1,  lon:-8.2,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'SCT',name:'Scotland',      lat:56.5,  lon:-4.2,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'RU', name:'Russia',        lat:61.5,  lon:105.3,  continent:'Europe',  rhythm:'Periodic' },
-    { code:'UA', name:'Ukraine',       lat:48.4,  lon:31.2,   continent:'Europe',  rhythm:'Periodic' },
-    { code:'US', name:'USA',           lat:37.1,  lon:-95.7,  continent:'America', rhythm:'Rhythm Mode' },
-    { code:'CA', name:'Canada',        lat:56.1,  lon:-106.3, continent:'America', rhythm:'Rhythm Mode' },
-    { code:'MX', name:'Mexico',        lat:23.6,  lon:-102.6, continent:'America', rhythm:'Cyclical' },
-    { code:'CU', name:'Cuba',          lat:21.5,  lon:-79.5,  continent:'America', rhythm:'Poly' },
-    { code:'BR', name:'Brazil',        lat:-14.2, lon:-51.9,  continent:'America', rhythm:'Poly' },
-    { code:'CO', name:'Colombia',      lat:4.6,   lon:-74.3,  continent:'America', rhythm:'Poly' },
-    { code:'PE', name:'Peru',          lat:-9.2,  lon:-75.0,  continent:'America', rhythm:'Cyclical' },
-    { code:'AR', name:'Argentina',     lat:-38.4, lon:-63.6,  continent:'America', rhythm:'Periodic' },
-    { code:'CL', name:'Chile',         lat:-35.7, lon:-71.5,  continent:'America', rhythm:'Cyclical' },
-    { code:'VE', name:'Venezuela',     lat:6.4,   lon:-66.6,  continent:'America', rhythm:'Poly' },
-    { code:'UY', name:'Uruguay',       lat:-32.5, lon:-55.8,  continent:'America', rhythm:'Periodic' },
-    { code:'PY', name:'Paraguay',      lat:-23.4, lon:-58.4,  continent:'America', rhythm:'Periodic' },
-    { code:'BO', name:'Bolivia',       lat:-16.3, lon:-63.6,  continent:'America', rhythm:'Cyclical' },
-    { code:'EC', name:'Ecuador',       lat:-1.8,  lon:-78.2,  continent:'America', rhythm:'Cyclical' },
-    { code:'CR', name:'Costa Rica',    lat:9.7,   lon:-83.8,  continent:'America', rhythm:'Cyclical' },
-    { code:'PA', name:'Panama',        lat:8.5,   lon:-80.8,  continent:'America', rhythm:'Poly' },
-    { code:'JM', name:'Jamaica',       lat:18.1,  lon:-77.3,  continent:'America', rhythm:'Rhythm Mode' },
-    { code:'HT', name:'Haiti',         lat:18.9,  lon:-72.3,  continent:'America', rhythm:'Poly' },
-    { code:'DO', name:'Dominican Rep.',lat:18.7,  lon:-70.2,  continent:'America', rhythm:'Poly' },
-    { code:'NZ', name:'New Zealand',   lat:-40.9, lon:174.9,  continent:'Oceania', rhythm:'Free' },
-    { code:'AU', name:'Australia',     lat:-25.3, lon:133.8,  continent:'Oceania', rhythm:'Free' },
+    { code:'KR', name:'Korea',    lat:37.5,  lon:127.0, continent:'Asia',   rhythm:'Cyclical' },
+    { code:'JP', name:'Japan',    lat:35.7,  lon:139.7, continent:'Asia',   rhythm:'Cyclical' },
+    { code:'CN', name:'China',    lat:39.9,  lon:116.4, continent:'Asia',   rhythm:'Periodic' },
+    { code:'TH', name:'Thailand', lat:15.9,  lon:100.9, continent:'Asia',   rhythm:'Cyclical' },
+    { code:'IN', name:'India',    lat:20.6,  lon:78.9,  continent:'Asia',   rhythm:'Cyclical' },
+    { code:'EG', name:'Egypt',    lat:26.8,  lon:30.8,  continent:'Africa', rhythm:'Cyclical' },
+    { code:'GR', name:'Greece',   lat:39.1,  lon:21.8,  continent:'Europe', rhythm:'Free' },
+    { code:'GB', name:'England',  lat:52.5,  lon:-1.5,  continent:'Europe', rhythm:'Periodic' },
+    { code:'RU', name:'Russia',   lat:61.5,  lon:105.3, continent:'Europe', rhythm:'Periodic' },
   ];
 
   const CX=786, CY=786, R=786;
   const GLOB_SCREEN_X=296, GLOB_SCREEN_Y=-236;
   const FILTER_ITEMS = [
-    {type:'continent',val:'Africa'},{type:'continent',val:'America'},
-    {type:'continent',val:'Asia'},{type:'continent',val:'Europe'},{type:'continent',val:'Oceania'},
-    {type:'rhythm',val:'Cyclical'},{type:'rhythm',val:'Free'},
-    {type:'rhythm',val:'Poly'},{type:'rhythm',val:'Periodic'},{type:'rhythm',val:'Rhythm Mode'},
+    {type:'continent',val:'Africa'},{type:'continent',val:'Asia'},{type:'continent',val:'Europe'},
+    {type:'rhythm',val:'Cyclical'},{type:'rhythm',val:'Free'},{type:'rhythm',val:'Periodic'},
   ];
 
   /* ── 뷰 상태 ── */
@@ -210,7 +144,7 @@ registerView('world_list', (() => {
       if(isFocused){ctx.strokeStyle=`rgba(0,0,0,${alpha})`;ctx.lineWidth=1.5;ctx.stroke();}
       ctx.font='400 18px "Noto Serif KR",serif';
       ctx.fillStyle=`rgba(0,0,0,${alpha})`;
-      ctx.fillText(c.code,p.sx+8,p.sy+6);
+      ctx.fillText(c.name,p.sx+8,p.sy+6);
     });
     /* 커서 원 도려내기 */
     const cx2=smoothX-GLOB_SCREEN_X, cy2=smoothY-GLOB_SCREEN_Y;
@@ -295,7 +229,7 @@ registerView('world_list', (() => {
       const item=FILTER_ITEMS[idx]; if(!item)return;
       const isActive=item.type==='continent'?activeContinents.has(item.val):activeRhythms.has(item.val);
       el.classList.toggle('active',isActive);
-      const isCursor = item.type==='continent' ? idx===contCursor : (idx-5)===rhyCursor;
+      const isCursor = item.type==='continent' ? idx===contCursor : (idx-3)===rhyCursor;
       el.classList.toggle('cursor',isCursor);
     });
   }
@@ -317,24 +251,16 @@ registerView('world_list', (() => {
         <div class="filter-row" id="filter-continent">
           <span class="filter-item" data-val="Africa">Africa</span>
           <span class="filter-sep"> / </span>
-          <span class="filter-item" data-val="America">America</span>
-          <span class="filter-sep"> / </span>
           <span class="filter-item" data-val="Asia">Asia</span>
           <span class="filter-sep"> / </span>
           <span class="filter-item" data-val="Europe">Europe</span>
-          <span class="filter-sep"> / </span>
-          <span class="filter-item" data-val="Oceania">Oceania</span>
         </div>
         <div class="filter-row" id="filter-rhythm">
           <span class="filter-item" data-val="Cyclical">Cyclical</span>
           <span class="filter-sep"> / </span>
           <span class="filter-item" data-val="Free">Free</span>
           <span class="filter-sep"> / </span>
-          <span class="filter-item" data-val="Poly">Poly</span>
-          <span class="filter-sep"> / </span>
           <span class="filter-item" data-val="Periodic">Periodic</span>
-          <span class="filter-sep"> / </span>
-          <span class="filter-item" data-val="Rhythm Mode">Rhythm Mode</span>
         </div>
       </div>
       <div class="screen world-view" id="screen">
@@ -509,11 +435,11 @@ registerView('world_list', (() => {
   }
 
   function doContMove(dir){
-    contCursor=((contCursor+dir)%5+5)%5;
+    contCursor=((contCursor+dir)%3+3)%3;
     updateFilterUI();
   }
   function doRhyMove(dir){
-    rhyCursor=((rhyCursor+dir)%5+5)%5;
+    rhyCursor=((rhyCursor+dir)%3+3)%3;
     updateFilterUI();
   }
   function doContToggle(){
@@ -523,7 +449,7 @@ registerView('world_list', (() => {
     updateFilterUI();
   }
   function doRhyToggle(){
-    const item=FILTER_ITEMS[5+rhyCursor];
+    const item=FILTER_ITEMS[3+rhyCursor];
     if(activeRhythms.has(item.val)) activeRhythms.delete(item.val);
     else activeRhythms.add(item.val);
     updateFilterUI();

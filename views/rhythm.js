@@ -54,7 +54,7 @@ function createRhythmView(cfg) {
   }
   /* COL_MOVE_STEP: 현재 spacing에 따라 동적 계산 → tickSpacingCurrent/2 사용 */
   const ROW_MOVE_STEP  = 10;
-  const VOL_STEP       = 12.5;
+  const VOL_STEP       = 30;
   const VOL_CLICKS_PER_LEVEL = 2;
   const VOL_LEVEL_MIN  = -2, VOL_LEVEL_MAX = 2;
   const VOL_LEVEL_GAIN = {'-2':0.1,'-1':0.35,'0':1.0,'1':1.4,'2':1.8};
@@ -100,12 +100,14 @@ function createRhythmView(cfg) {
     for (let i = 0; i < EVENTS.length; i++) {
       const ev = getEvent(i);
       if (cfg.staggerRows && ev.row !== lastRow && ev.row % 2 === 1) {
-        t += BEAT_MS / 2; /* 짝수행 진입 시 반박 지연 — 시각 엇갈림과 동기화 */
+        t += BEAT_MS / 2;
       }
       lastRow = ev.row;
       EVENT_TIMES[i] = t;
       if (ev.word !== null && ev.style !== 0) {
-        t += BEAT_MS; /* halfSplit도 1박 전체를 차지 — 내부에서 0.5+0.5로 분할 */
+        t += BEAT_MS;
+      } else if (!cfg.skipEmptyBeats) {
+        t += BEAT_MS; /* 빈 박도 시간 소모 (한국 장단 등 쉼표가 있는 박자) */
       }
     }
     TOTAL_DUR = t || 1;
@@ -1294,6 +1296,11 @@ function createRhythmView(cfg) {
   function handleKeyDown(e) {
     if (e.code==='Enter')    { e.preventDefault(); doRuler();  return; }
     if (e.code==='Escape')   { doErase();  return; }
+    if (e.code==='KeyZ')     { doDesel();  return; }
+    if (e.code==='KeyR')     { doDesel();  return; }
+    if (e.code==='KeyL')     { handleCommand(roopEnabled ? 'ROOP0' : 'ROOP1'); return; }
+    if (e.key==='F9'||e.code==='F9') { e.preventDefault(); doSpeed(-1); return; }
+    if (e.key==='F7'||e.code==='F7') { e.preventDefault(); doSpeed(1);  return; }
     if (e.code==='Space')    { e.preventDefault(); doPlay();   return; }
     if (e.code==='Backspace'){ e.preventDefault(); doChange(); return; }
     if (e.code==='KeyM')     { doMute();   return; }

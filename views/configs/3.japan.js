@@ -24,7 +24,8 @@ registerView('odori', createRhythmView({
     return tops[row] ?? 380;
   },
 
-  staggerRows: true, /* 짝수행(0-indexed odd)의 글자를 반박 뒤로 엇갈리게 배치 */
+  staggerRows: true,
+  skipEmptyBeats: true, /* 빈 박은 시간 소모 없이 즉시 다음 줄로 */
 
   /* 96개 더미 → postProcessEvents에서 실제 가사로 교체 */
   words: Array(96).fill('_'),
